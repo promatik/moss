@@ -48,33 +48,25 @@ public class Server extends Thread
 		
 		while(running)
 		{
-			for(int i = 0;i < users.size();i++)
-			{
-				if(!users.get(i).isConnected)
-				{
+			for(int i = 0;i < users.size();i++) {
+				if(!users.get(i).isConnected) {
 					System.out.println(users.get(i)+" removed due to lack of connection.");
 					users.remove(i);
 				}
 			}
-			try
-			{
+			
+			try {
 				socket = serverSocket.accept();
-			}
-			catch(IOException e)
-			{
+				System.out.println("Client "+socket+" has connected.");
+				users.add(new User(socket));
+			} catch(IOException e) {
 				System.out.println("Could not get a client.");
 			}
 			
-			System.out.println("Client "+socket+" has connected.");
-			
-			users.add(new User(socket));
-			
-			try
-			{
+			try {
 				Thread.sleep(Main.ROOM_THROTTLE);
-			}
-			catch(InterruptedException e)
-			{
+			} catch(InterruptedException e) {
+				running = false;
 				System.out.println("Room has been interrupted.");
 			}
 		}
