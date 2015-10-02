@@ -10,6 +10,7 @@ import pt.promatik.moss.vo.UserVO;
 public abstract class Moss
 {
 	public static int APP_TIMER = 60000; // 1 minute
+	public static int SERVER_PORT = 30480;
 	public static final int USER_THROTTLE = 100;
 	public static final int ROOM_THROTTLE = 200;
 	public static final String MSG_DELIMITER = "&!";
@@ -33,6 +34,7 @@ public abstract class Moss
     {
     	System.out.println("MOSS v0.1 - Multiplayer Online Socket Server\n"/*Copyright @promatik\n*/);
     	if(instance == null) instance = this;
+    	SERVER_PORT = port;
     	
     	Utils.log("Starting Server");
     	srv = new Server(port);

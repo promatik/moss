@@ -23,6 +23,7 @@ public class User
 	public String id = null;
 	public String room = "";
 	private String status = "";
+	private boolean protocolConn = false;
 	
 	public User(Socket newSocket)
 	{
@@ -57,7 +58,6 @@ public class User
 			out.flush();
 		} catch (IOException e) {
 			disconnect();
-			//e.printStackTrace();
 		}
 	}
 	
@@ -92,11 +92,18 @@ public class User
 						processMessage(result);
 					    result = "";
 					}
+					
+					// Flash privacy policy
+					if(result.equals("<policy-file-request/>")) {
+						protocolConn = true;
+						out.write("<?xml version=\"1.0\"?><cross-domain-policy><allow-access-from domain=\"*\" to-ports=\"" + Moss.SERVER_PORT + "\" /></cross-domain-policy>\0");
+						out.flush();
+					}
 				}
 				
 				Thread.sleep( Moss.USER_THROTTLE );
 			} catch (Exception e) {
-				e.printStackTrace();
+				Utils.log("Connection reset exception");
 			}
 			disconnect();
 		}
@@ -218,7 +225,8 @@ public class User
 	
 	public void disconnect()
 	{
-		Utils.log("Client " + socket + " has disconnected.");
+		if(!protocolConn)
+			Utils.log("Client " + socket + " has disconnected.");
 		
 		try
 		{
