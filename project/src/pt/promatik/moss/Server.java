@@ -5,7 +5,9 @@ import java.net.Socket;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Vector;
 
 public class Server extends Thread
 {
@@ -13,18 +15,20 @@ public class Server extends Thread
 	private InetAddress hostAddress;
 	private Socket socket;
 	private volatile Boolean running = false;
-	private ArrayList<User> users = new ArrayList<User>();
+	
+	private Vector<User> users = new Vector<User>();
+	private HashMap<String, Room> rooms = new HashMap<String, Room>();
 	
 	public Server(int port)
 	{
 		try
 		{
 			hostAddress = InetAddress.getLocalHost();
-			System.out.println("Server host address is: "+hostAddress);
+			Utils.log("Server host address is: " + hostAddress + ", port: " + String.valueOf(port));
 		}
 		catch(UnknownHostException e)
 		{
-			System.out.println("Could not get the host address.");
+			Utils.log("Could not get the host address.");
 			return;
 		}
 		
@@ -34,42 +38,69 @@ public class Server extends Thread
 		}
 		catch(IOException e)
 		{
-			System.out.println("Could not open server socket.");
+			Utils.log("Could not open server socket.");
 			return;
 		}
 		
-		System.out.println("Socket "+serverSocket+" created.");
+		Moss.instance.serverStarted();
 	}
+    
+    public Collection<Room> getRooms() {
+    	return rooms.values();
+    }
+    
+    public Room getRoom(String id) {
+    	Room r = rooms.get(id);
+    	if(r == null) {
+    		r = new Room(id);
+    		rooms.put(id, r);
+    	}
+    	return r;
+    }
+
+    public void removeUser(User user) {
+    	users.remove(user);
+    }
+    
+    public void pingUsers() {
+    	for (User user : users) {
+    		user.invoke("ping");
+		}
+    }
+    
+    public void checkDoubleLogin(String id) {
+    	for (Room room : rooms.values()) {
+    		User user = room.users.get(id);
+			if(user != null) {
+				user.invoke("doublelogin");
+				user.disconnect();
+			}
+		}
+    }
 	
 	public void run()
 	{
-		System.out.println("Room has been started.");
 		running = true;
 		
 		while(running)
 		{
-			for(int i = 0;i < users.size();i++) {
-				if(!users.get(i).isConnected) {
-					System.out.println(users.get(i)+" removed due to lack of connection.");
-					users.remove(i);
-				}
-			}
-			
 			try {
 				socket = serverSocket.accept();
-				System.out.println("Client "+socket+" has connected.");
 				users.add(new User(socket));
+				Utils.log("Client " + socket + " has connected.");
 			} catch(IOException e) {
-				System.out.println("Could not get a client.");
+				Utils.log("Could not get a client.");
 			}
 			
 			try {
-				Thread.sleep(Main.ROOM_THROTTLE);
+				Thread.sleep(Moss.ROOM_THROTTLE);
 			} catch(InterruptedException e) {
-				running = false;
-				System.out.println("Room has been interrupted.");
+				quit();
+				Utils.log("Room has been interrupted.");
 			}
 		}
+		
+		Moss.instance.serverStopped();
 	}
 	
 	public void quit() {
