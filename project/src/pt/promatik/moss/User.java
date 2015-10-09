@@ -24,6 +24,7 @@ public class User
 	public String room = "";
 	private String status = "";
 	private boolean protocolConn = false;
+	private boolean validConn = false;
 	
 	public User(Socket newSocket)
 	{
@@ -33,28 +34,38 @@ public class User
 	}
 	
 	public String toString(){
-		return id + Moss.MSG_DELIMITER + room + Moss.MSG_DELIMITER + status + Moss.MSG_DELIMITER;
+		return id + "," + room + "," + status;
 	}
 	
 	public void invoke(String command)
 	{
-		invoke(null, command, "");
-	}
-	
-	public void invoke(String command, String message)
-	{
-		invoke(null, command, message);
+		invoke(null, command, "", "");
 	}
 	
 	public void invoke(User from, String command)
 	{
-		invoke(from, command, "");
+		invoke(from, command, "", "");
+	}
+	
+	public void invoke(String command, String request)
+	{
+		invoke(null, command, "", request);
+	}
+	
+	public void invoke(String command, String message, String request)
+	{
+		invoke(null, command, message, request);
 	}
 	
 	public void invoke(User from, String command, String message)
 	{
+		invoke(from, command, message, "");
+	}
+	
+	public void invoke(User from, String command, String message, String request)
+	{
 		try {
-			out.write("#MOSS#<!" + command + "!>#<!" + (from != null ? from.toString() : "") + "!>#<!" + message + "!>#|");
+			out.write("#MOSS#<!" + command + "!>#<!" + (from != null ? from.toString() : "") + "!>#<!" + message + "!>#<!" + request + "!>#|");
 			out.flush();
 		} catch (IOException e) {
 			disconnect();
@@ -67,7 +78,6 @@ public class User
 	
 	public void setStatus(String status) {
 		this.status = status;
-		invoke("statusUpdated", status);
 	}
 	
 	private class Inport extends Thread
@@ -89,12 +99,13 @@ public class User
 					result += new String(buff, 0, k);
 					
 					if(result.contains("|")) {
+						validConn = true;
 						processMessage(result);
 					    result = "";
 					}
 					
 					// Flash privacy policy
-					if(result.equals("<policy-file-request/>")) {
+					if(!validConn && result.equals("<policy-file-request/>")) {
 						protocolConn = true;
 						out.write("<?xml version=\"1.0\"?><cross-domain-policy><allow-access-from domain=\"*\" to-ports=\"" + Moss.SERVER_PORT + "\" /></cross-domain-policy>\0");
 						out.flush();
@@ -103,7 +114,7 @@ public class User
 				
 				Thread.sleep( Moss.USER_THROTTLE );
 			} catch (Exception e) {
-				Utils.log("Connection reset exception");
+				Utils.log("Connection reset exception: " + e.toString());
 			}
 			disconnect();
 		}
@@ -111,24 +122,25 @@ public class User
 	
 	public void processMessage(String msg)
 	{
-		// Protocol: #MOSS#(command)#(message)#|
-		// #MOSS#<!connect			!>#<!(id)&!(room)&!(status)?			!>#|
-		// #MOSS#<!disconnect		!>#<!									!>#|
-		// #MOSS#<!updateStatus		!>#<!(status)							!>#|
-		// #MOSS#<!getUser			!>#<!(id)&!(room)						!>#|
-		// #MOSS#<!getUsers			!>#<!(room)&!(limit)?&!(page)?			!>#|
-		// #MOSS#<!getUsersCount	!>#<!(room)								!>#|
-		// #MOSS#<!invoke			!>#<!(id)&!(room)&!(command)&!(message)	!>#|
-		// #MOSS#<!invokeOnRoom		!>#<!(room)&!(command)&!(message)		!>#|
-		// #MOSS#<!invokeOnAll		!>#<!(command)&!(message)				!>#|
+		// Protocol: #MOSS#(command)#(message)#(request)#|
+		// #MOSS#<!connect		!>#<!(id)&!(room)&!(status)?			!>#<!request!>#|
+		// #MOSS#<!disconnect	!>#<!									!>#<!request!>#|
+		// #MOSS#<!updateStatus	!>#<!(status)							!>#<!request!>#|
+		// #MOSS#<!getUser		!>#<!(id)&!(room)						!>#<!request!>#|
+		// #MOSS#<!getUsers		!>#<!(room)&!(limit)?&!(page)?			!>#<!request!>#|
+		// #MOSS#<!getUsersCount!>#<!(room)								!>#<!request!>#|
+		// #MOSS#<!invoke		!>#<!(id)&!(room)&!(command)&!(message)	!>#<!request!>#|
+		// #MOSS#<!invokeOnRoom	!>#<!(room)&!(command)&!(message)		!>#<!request!>#|
+		// #MOSS#<!invokeOnAll	!>#<!(command)&!(message)				!>#<!request!>#|
 		
-		msg = msg.replaceAll("\\||\\\r|\\\n", "");
-		Pattern p = Pattern.compile("^#MOSS#<!(.+)!>#<!(.+)?!>#$");
+		msg = msg.replaceAll("\\|", "");
+		Pattern p = Pattern.compile("^#MOSS#<!(.+)!>#<!(.+)?!>#<!(.+)?!>#$");
 		Matcher m = p.matcher(msg);
 		
 		if (m.matches()) {
 			String command = m.group(1);
 			String message = m.group(2);
+			String request = m.group(3);
 			String[] messages = null;
 			if(!message.equals(""))
 				messages = message.split(Moss.MSG_DELIMITER);
@@ -151,7 +163,7 @@ public class User
 						Moss.instance.srv.checkDoubleLogin(this.id);
 						Moss.instance.srv.getRoom(this.room).add(this.id, this);
 						Moss.instance.userConnected(this);
-						invoke("connected");
+						invoke("connected", request);
 					}
 					break;
 				case "disconnect": 
@@ -160,6 +172,7 @@ public class User
 				case "updateStatus": 
 					if (messages.length == 1) {
 						setStatus(messages[0]);
+						invoke("statusUpdated", messages[0], request);
 						Moss.instance.userUpdatedStatus(this, this.status);
 					}
 					break;
@@ -167,9 +180,11 @@ public class User
 					if (messages.length == 2) {
 						User user = Moss.instance.getUserByID(new UserVO(messages[0], messages[1]));
 						if(user != null)
-							result = user.id + Moss.MSG_DELIMITER + user.room + Moss.MSG_DELIMITER + user.status;
+							result = user.id + "," + user.room + "," + user.status + "," + "on";
+						else
+							result = messages[0] + "," + messages[1] + ",," + "off";
 					}
-					invoke("user", result);
+					invoke("user", result, request);
 					break;
 				case "getUsers": 
 					List<User> users = null;
@@ -183,16 +198,16 @@ public class User
 					boolean first = true;
 					if(users != null) {
 						for (User user : users) {
-							result += (!first ? Moss.MSG_DELIMITER : "") + user.id + "," + user.status;
+							result += (!first ? Moss.MSG_DELIMITER : "") + user.id + "," + user.room + "," + user.status;
 							first = false;
 						}
 					}
-					invoke("users", result);
+					invoke("users", result, request);
 					break;
 				case "getUsersCount": 
 					if (messages.length == 1) {
 						int total = Moss.instance.getUsersCount(messages[0]);
-						invoke("usersCount", String.valueOf(total));
+						invoke("usersCount", String.valueOf(total), request);
 					}
 					break;
 				case "invoke":
@@ -200,21 +215,21 @@ public class User
 					if (messages.length >= 3) 
 						status = Moss.instance.invoke(this, messages[0], messages[1], messages[2], optionalMessage);
 					
-					invoke("invoke", status ? "ok" : "error");
+					invoke("invoke", status ? "ok" : "error", request);
 					break;
 				case "invokeOnRoom": 
 					if (messages.length == 3) {
 						Moss.instance.invokeOnRoom(this, messages[0], messages[1], messages[2]);
 						status = true;
 					}
-					invoke("invokeOnRoom", status ? "ok" : "error");
+					invoke("invokeOnRoom", status ? "ok" : "error", request);
 					break;
 				case "invokeOnAll": 
 					if (messages.length == 2) {
 						Moss.instance.invokeOnAll(this, messages[0], messages[1]);
 						status = true;
 					}
-					invoke("invokeOnAll", status ? "ok" : "error");
+					invoke("invokeOnAll", status ? "ok" : "error", request);
 					break;
 				default: 
 					Moss.instance.userMessage(this, command, message);
@@ -226,14 +241,14 @@ public class User
 	public void disconnect()
 	{
 		if(!protocolConn)
-			Utils.log("Client " + socket + " has disconnected.");
+			Utils.log(this.id + ", " + socket + " has disconnected.");
 		
 		try
 		{
-			if(this.id != null)
-				Moss.instance.userDisconnected(this);
 			Moss.instance.srv.getRoom(this.room).remove(this);
 			Moss.instance.srv.removeUser(this);
+			if(this.id != null)
+				Moss.instance.userDisconnected(this);
 			
 			isConnected = false;
 			socket.close();

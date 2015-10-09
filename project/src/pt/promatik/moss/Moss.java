@@ -14,8 +14,9 @@ public abstract class Moss
 	public static final int USER_THROTTLE = 100;
 	public static final int ROOM_THROTTLE = 200;
 	public static final String MSG_DELIMITER = "&!";
-	public static Boolean log = true;
 	public static Moss instance;
+	
+	public boolean log = true;
 	public Server srv;
 	public Timer pingTimer = new Timer();
 	public Timer appTimer = new Timer();
@@ -27,14 +28,27 @@ public abstract class Moss
     
     protected void start()
     {
-    	start(30480);
+    	start(30480, true);
     }
     
-    protected void start(int port)
+    protected void start(boolean log)
+    {
+    	start(30480, log);
+    }
+    
+    protected void start(String[] args)
+    {
+    	if(args.length > 0) start(args[0] == "log");
+    	if(args.length > 1) start(Integer.parseInt(args[1]), args[0] == "log");
+		else start();
+    }
+    
+    protected void start(int port, boolean log)
     {
     	System.out.println("MOSS v0.1 - Multiplayer Online Socket Server\n"/*Copyright @promatik\n*/);
     	if(instance == null) instance = this;
     	SERVER_PORT = port;
+    	this.log = log;
     	
     	Utils.log("Starting Server");
     	srv = new Server(port);
