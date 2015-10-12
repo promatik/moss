@@ -115,8 +115,9 @@ public class User
 				Thread.sleep( Moss.USER_THROTTLE );
 			} catch (Exception e) {
 				Utils.log("Connection reset exception: " + e.toString());
+			} finally {
+				disconnect();
 			}
-			disconnect();
 		}
 	}
 	
@@ -240,6 +241,9 @@ public class User
 	
 	public void disconnect()
 	{
+		if(!isConnected)
+			return;
+		
 		if(!protocolConn)
 			Utils.log(this.id + ", " + socket + " has disconnected.");
 		
@@ -252,6 +256,8 @@ public class User
 			
 			isConnected = false;
 			socket.close();
+			
+			socket = null;
 		}
 		catch(IOException e)
 		{
