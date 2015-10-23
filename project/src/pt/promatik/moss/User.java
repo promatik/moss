@@ -4,6 +4,7 @@ import java.net.Socket;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.Observable;
 
 import pt.promatik.moss.vo.UserVO;
 
@@ -13,7 +14,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 
-public class User
+public class User extends Observable
 {
 	private Socket socket;
 	private BufferedReader in;
@@ -35,6 +36,10 @@ public class User
 	
 	public String toString(){
 		return id + "," + room + "," + status;
+	}
+	
+	public UserVO getVO(){
+		return new UserVO(id, room);
 	}
 	
 	public void invoke(String command)
@@ -95,7 +100,7 @@ public class User
 				
 				char[] buff = new char[1];
 				int k = -1;
-				while( (k = in.read(buff, 0, 1)) > -1 ) {
+				while( isConnected && (k = in.read(buff, 0, 1)) > -1 ) {
 					result += new String(buff, 0, k);
 					
 					if(result.contains("|")) {
@@ -114,6 +119,7 @@ public class User
 				
 				Thread.sleep( Moss.USER_THROTTLE );
 			} catch (Exception e) {
+				e.printStackTrace();
 				Utils.log("Connection reset exception: " + e.toString());
 			} finally {
 				disconnect();
@@ -139,9 +145,9 @@ public class User
 		Matcher m = p.matcher(msg);
 		
 		if (m.matches()) {
-			String command = m.group(1);
-			String message = m.group(2);
-			String request = m.group(3);
+			String command = m.group(1) + "";
+			String message = m.group(2) + "";
+			String request = m.group(3) + "";
 			String[] messages = null;
 			if(!message.equals(""))
 				messages = message.split(Moss.MSG_DELIMITER);
@@ -226,14 +232,14 @@ public class User
 					invoke("invokeOnRoom", status ? "ok" : "error", request);
 					break;
 				case "invokeOnAll": 
-					if (messages.length == 2) {
+					if (messages.length >= 1) {
 						Moss.instance.invokeOnAll(this, messages[0], messages[1]);
 						status = true;
 					}
 					invoke("invokeOnAll", status ? "ok" : "error", request);
 					break;
 				default: 
-					Moss.instance.userMessage(this, command, message);
+					Moss.instance.userMessage(this, command, message, request);
 					break;
 			}
 		}
@@ -241,6 +247,8 @@ public class User
 	
 	public void disconnect()
 	{
+		notifyObservers(this.id);
+		
 		if(!isConnected)
 			return;
 		
@@ -255,6 +263,8 @@ public class User
 				Moss.instance.userDisconnected(this);
 			
 			isConnected = false;
+			in.close();
+			out.close();
 			socket.close();
 			
 			socket = null;

@@ -16,10 +16,12 @@ public abstract class Moss
 	public static final String MSG_DELIMITER = "&!";
 	public static Moss instance;
 	
-	public boolean log = true;
 	public Server srv;
-	public Timer pingTimer = new Timer();
-	public Timer appTimer = new Timer();
+	public MySQL mysql = new MySQL();
+	public boolean log = true;
+	
+	private Timer pingTimer = new Timer();
+	private Timer appTimer = new Timer();
 	
     public Moss()
     {
@@ -28,12 +30,12 @@ public abstract class Moss
     
     protected void start()
     {
-    	start(30480, true);
+    	start(SERVER_PORT, true);
     }
     
     protected void start(boolean log)
     {
-    	start(30480, log);
+    	start(SERVER_PORT, log);
     }
     
     protected void start(String[] args)
@@ -59,7 +61,7 @@ public abstract class Moss
 			public void run() {
 				srv.pingUsers();
 			}
-		}, 60000); // 1 minute
+		}, 0, 60000); // 1 minute
     }
     
     protected void startTimer(int interval)
@@ -69,7 +71,12 @@ public abstract class Moss
 			public void run() {
 				appTimer();
 			}
-		}, interval); 
+		}, 1000, interval); 
+    }
+    
+    protected void stopTimer()
+    {
+    	appTimer.cancel();
     }
     
     protected void appTimer()
@@ -91,12 +98,12 @@ public abstract class Moss
     abstract public void userConnected(User user);
     abstract public void userDisconnected(User user);
     abstract public void userUpdatedStatus(User user, String status);
-    abstract public void userMessage(User user, String command, String message);
+    abstract public void userMessage(User user, String command, String message, String request);
     
     // -----------------
     // User
     
-	protected void updateStatus(UserVO user, String status) {
+	public void updateStatus(UserVO user, String status) {
 		try {
 			srv.getRoom(user.room).users.get(user.id).setStatus(status);
 		} catch (Exception e) {
@@ -104,11 +111,11 @@ public abstract class Moss
 		}
     }
     
-	protected List<User> getUsers(String room) {
+	public List<User> getUsers(String room) {
     	return getUsers(room, 20, 0);
     }
     
-	protected List<User> getUsers(String room, int limit, int page) {
+	public List<User> getUsers(String room, int limit, int page) {
 		ArrayList<User> users = new ArrayList<User>(srv.getRoom(room).users.values());
 		if(users.size() == 0)
 			return null;
@@ -128,12 +135,12 @@ public abstract class Moss
 		}
     }
     
-	protected User getUserByID(UserVO user) {
+	public User getUserByID(UserVO user) {
 		User u = srv.getRoom(user.room).users.get(user.id);
 		return u;
     }
     
-	protected List<User> getUsersByID(UserVO[] users) {
+	public List<User> getUsersByID(UserVO[] users) {
 		List<User> result = new ArrayList<User>();
 		for (UserVO user : users) {
 			User u = getUserByID(user);
@@ -143,11 +150,11 @@ public abstract class Moss
     	return result;
     }
     
-	protected int getUsersCount(String room) {
+	public int getUsersCount(String room) {
 		return srv.getRoom(room).users.size();
     }
     
-	protected boolean invoke(User from, String id, String room, String command, String message) {
+	public boolean invoke(User from, String id, String room, String command, String message) {
 		try {
 			srv.getRoom(room).users.get(id).invoke(from, command, message);
 			return true;
@@ -157,11 +164,11 @@ public abstract class Moss
 		}
     }
     
-	protected void invokeOnRoom(User from, String room, String command, String message) {
+	public void invokeOnRoom(User from, String room, String command, String message) {
     	srv.getRoom(room).invoke(from, command, message);
     }
     
-	protected void invokeOnAll(User from, String command, String message) {
+	public void invokeOnAll(User from, String command, String message) {
     	for (Room room : srv.getRooms()) {
 			for (User user : room.users.values()) {
 				user.invoke(from, command, message);
