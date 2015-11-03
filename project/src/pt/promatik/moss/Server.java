@@ -72,8 +72,7 @@ public class Server extends Thread
     	for (Room room : rooms.values()) {
     		User user = room.users.get(id);
 			if(user != null) {
-				user.invoke("doublelogin");
-				user.disconnect();
+				user.doubleLogin();
 			}
 		}
     }

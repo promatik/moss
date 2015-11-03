@@ -155,8 +155,6 @@ public class User extends Observable
 			if(!command.equals("connect") && id == null)
 				return;
 			
-			Utils.log(this.id + ", " + command + ", " + message);
-			
 			String result = "";
 			boolean status = false;
 			switch(command){
@@ -169,7 +167,8 @@ public class User extends Observable
 						
 						Moss.instance.srv.checkDoubleLogin(this.id);
 						Moss.instance.srv.getRoom(this.room).add(this.id, this);
-						Moss.instance.userConnected(this);
+						if(!this.id.equals("0"))
+							Moss.instance.userConnected(this);
 						invoke("connected", request);
 					}
 					break;
@@ -242,7 +241,18 @@ public class User extends Observable
 					Moss.instance.userMessage(this, command, message, request);
 					break;
 			}
+			
+			Utils.log(this.id + ", " + command + ", " + message);
 		}
+	}
+	
+	protected void doubleLogin()
+	{
+		invoke("doublelogin");
+		Moss.instance.srv.getRoom(this.room).remove(this);
+		Moss.instance.srv.removeUser(this);
+		if(this.id != null)
+			Moss.instance.userDisconnected(this);
 	}
 	
 	public void disconnect()
