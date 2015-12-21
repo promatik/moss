@@ -11,7 +11,7 @@ public class Room {
 		this.name = name;
 	}
 	
-	public void invoke(User from, String command, String message)
+	public synchronized void invoke(User from, String command, String message)
 	{
 		for (User user : users.values()) {
 			user.invoke(from, command, message);

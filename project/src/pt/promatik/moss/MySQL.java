@@ -26,7 +26,7 @@ public class MySQL {
 			conn = DriverManager.getConnection("jdbc:mysql://" + host + ":" + String.valueOf(port) + "/" + database, user, password);
 			connected = true;
 		} catch (Exception e) {
-			Utils.log("Connect exception " + e.toString(), "MySQL");
+			Utils.log("Connect exception " + e.toString() + " - " + e.getMessage(), "MySQL", e);
 		}
 	}
 	
@@ -35,7 +35,7 @@ public class MySQL {
 			connected = false;
 			conn.close();
 		} catch (SQLException e) {
-			e.printStackTrace();
+			Utils.log(e);
 		}
 	}
 
@@ -82,7 +82,10 @@ public class MySQL {
 		Statement stmt = null;
 		try {
 			stmt = conn.createStatement();
-			stmt.executeQuery(query);
+			if(query.indexOf("UPDATE") == 0 || query.indexOf("INSERT") == 0)
+				stmt.executeUpdate(query);
+			else
+				stmt.executeQuery(query);
 			stmt.close();
 		} catch (SQLException e) {
 			Utils.log("Statement exception " + e.toString(), "MySQL");

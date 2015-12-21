@@ -9,18 +9,14 @@ import pt.promatik.moss.vo.UserVO;
 
 public abstract class Moss
 {
-	public static int APP_TIMER = 60000; // 1 minute
-	public static int SERVER_PORT = 30480;
-	public static final int USER_THROTTLE = 100;
-	public static final int ROOM_THROTTLE = 200;
-	public static final String MSG_DELIMITER = "&!";
 	public static Moss instance;
+	public static int SERVER_PORT = 30480;
+	public static final String MSG_DELIMITER = "&!";
 	
 	public Server srv;
 	public MySQL mysql = new MySQL();
-	public boolean log = true;
+	public int log = Utils.LOG_ERRORS;
 	
-	private Timer pingTimer = new Timer();
 	private Timer appTimer = new Timer();
 	
     public Moss()
@@ -30,32 +26,34 @@ public abstract class Moss
     
     protected void start()
     {
-    	start(SERVER_PORT, true);
+    	start(SERVER_PORT, log);
     }
     
-    protected void start(boolean log)
+    protected void start(int log)
     {
     	start(SERVER_PORT, log);
     }
     
     protected void start(String[] args)
     {
-    	if(args.length > 0) start(args[0] == "log");
-    	if(args.length > 1) start(Integer.parseInt(args[1]), args[0] == "log");
+    	if(args.length >= 2) start(args[0].equals("log") ? Integer.parseInt(args[1]) : log);
 		else start();
     }
     
-    protected void start(int port, boolean log)
+    protected void start(int port, int log)
     {
-    	System.out.println("MOSS v0.1 - Multiplayer Online Socket Server\n"/*Copyright @promatik\n*/);
+    	System.out.println("MOSS v0.2 - Multiplayer Online Socket Server"/*\nCopyright @promatik*/);
     	if(instance == null) instance = this;
     	SERVER_PORT = port;
     	this.log = log;
     	
     	Utils.log("Starting Server");
+    	Utils.log("Log level " + String.valueOf(log));
+    	
     	srv = new Server(port);
     	new Thread(srv).start();
     	
+    	Timer pingTimer = new Timer();
     	pingTimer.schedule(new TimerTask() {
 			@Override
 			public void run() {
@@ -103,7 +101,7 @@ public abstract class Moss
     // -----------------
     // User
     
-	public void updateStatus(UserVO user, String status) {
+	public synchronized void updateStatus(UserVO user, String status) {
 		try {
 			srv.getRoom(user.room).users.get(user.id).setStatus(status);
 		} catch (Exception e) {
@@ -115,7 +113,7 @@ public abstract class Moss
     	return getUsers(room, 20, 0);
     }
     
-	public List<User> getUsers(String room, int limit, int page) {
+	public synchronized List<User> getUsers(String room, int limit, int page) {
 		ArrayList<User> users = new ArrayList<User>(srv.getRoom(room).users.values());
 		if(users.size() == 0)
 			return null;
@@ -130,17 +128,17 @@ public abstract class Moss
 			result = users.subList(limit_min, limit_max);
 			return result;
 		} catch (Exception e) {
-			e.printStackTrace();
+			Utils.log(e);
 			return null;
 		}
     }
     
-	public User getUserByID(UserVO user) {
+	public synchronized User getUserByID(UserVO user) {
 		User u = srv.getRoom(user.room).users.get(user.id);
 		return u;
     }
     
-	public List<User> getUsersByID(UserVO[] users) {
+	public synchronized List<User> getUsersByID(UserVO[] users) {
 		List<User> result = new ArrayList<User>();
 		for (UserVO user : users) {
 			User u = getUserByID(user);
@@ -150,11 +148,11 @@ public abstract class Moss
     	return result;
     }
     
-	public int getUsersCount(String room) {
+	public synchronized int getUsersCount(String room) {
 		return srv.getRoom(room).users.size();
     }
     
-	public boolean invoke(User from, String id, String room, String command, String message) {
+	public synchronized boolean invoke(User from, String id, String room, String command, String message) {
 		try {
 			srv.getRoom(room).users.get(id).invoke(from, command, message);
 			return true;
@@ -164,11 +162,11 @@ public abstract class Moss
 		}
     }
     
-	public void invokeOnRoom(User from, String room, String command, String message) {
+	public synchronized void invokeOnRoom(User from, String room, String command, String message) {
     	srv.getRoom(room).invoke(from, command, message);
     }
     
-	public void invokeOnAll(User from, String command, String message) {
+	public synchronized void invokeOnAll(User from, String command, String message) {
     	for (Room room : srv.getRooms()) {
 			for (User user : room.users.values()) {
 				user.invoke(from, command, message);

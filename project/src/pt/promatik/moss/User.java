@@ -70,9 +70,12 @@ public class User extends Observable
 	public void invoke(User from, String command, String message, String request)
 	{
 		try {
-			out.write("#MOSS#<!" + command + "!>#<!" + (from != null ? from.toString() : "") + "!>#<!" + message + "!>#<!" + request + "!>#|");
-			out.flush();
+			if(isConnected) {
+				out.write("#MOSS#<!" + command + "!>#<!" + (from != null ? from.toString() : "") + "!>#<!" + message + "!>#<!" + request + "!>#|");
+				out.flush();
+			}
 		} catch (IOException e) {
+			Utils.log("Connection io exception: " + e.toString(), e);
 			disconnect();
 		}
 	}
@@ -93,7 +96,10 @@ public class User extends Observable
 				in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 				out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
 			}
-			catch(IOException e) { return; }
+			catch(IOException e) {
+				Utils.log(e);
+				return;
+			}
 			
 			try {
 				String result = "";
@@ -116,11 +122,8 @@ public class User extends Observable
 						out.flush();
 					}
 				}
-				
-				Thread.sleep( Moss.USER_THROTTLE );
 			} catch (Exception e) {
-				e.printStackTrace();
-				Utils.log("Connection reset exception: " + e.toString());
+				Utils.log("Connection reset exception: " + e.toString(), e);
 			} finally {
 				disconnect();
 			}
@@ -173,6 +176,7 @@ public class User extends Observable
 					}
 					break;
 				case "disconnect": 
+					invoke("disconnected", request);
 					disconnect();
 					break;
 				case "updateStatus": 
@@ -257,6 +261,7 @@ public class User extends Observable
 	
 	public void disconnect()
 	{
+		setChanged();
 		notifyObservers(this.id);
 		
 		if(!isConnected)
@@ -281,7 +286,7 @@ public class User extends Observable
 		}
 		catch(IOException e)
 		{
-			Utils.log("Could not purge "+socket+".");
+			Utils.log("Could not purge " + socket + ".", e);
 		}
 	}
 }

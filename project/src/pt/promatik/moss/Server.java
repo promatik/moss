@@ -28,7 +28,7 @@ public class Server extends Thread
 		}
 		catch(UnknownHostException e)
 		{
-			Utils.log("Could not get the host address.");
+			Utils.log("Could not get the host address.", e);
 			return;
 		}
 		
@@ -38,7 +38,7 @@ public class Server extends Thread
 		}
 		catch(IOException e)
 		{
-			Utils.log("Could not open server socket.");
+			Utils.log("Could not open server socket.", e);
 			return;
 		}
 		
@@ -49,7 +49,7 @@ public class Server extends Thread
     	return rooms.values();
     }
     
-    public Room getRoom(String id) {
+    public synchronized Room getRoom(String id) {
     	Room r = rooms.get(id);
     	if(r == null) {
     		r = new Room(id);
@@ -58,17 +58,17 @@ public class Server extends Thread
     	return r;
     }
 
-    public void removeUser(User user) {
+    public synchronized void removeUser(User user) {
     	users.remove(user);
     }
     
-    public void pingUsers() {
+    public synchronized void pingUsers() {
     	for (User user : users) {
     		user.invoke("ping");
 		}
     }
     
-    public void checkDoubleLogin(String id) {
+    public synchronized void checkDoubleLogin(String id) {
     	for (Room room : rooms.values()) {
     		User user = room.users.get(id);
 			if(user != null) {
@@ -88,14 +88,7 @@ public class Server extends Thread
 				users.add(new User(socket));
 				Utils.log("Client " + socket + " has connected.");
 			} catch(IOException e) {
-				Utils.log("Could not get a client.");
-			}
-			
-			try {
-				Thread.sleep(Moss.ROOM_THROTTLE);
-			} catch(InterruptedException e) {
-				quit();
-				Utils.log("Room has been interrupted.");
+				Utils.log("Could not get a client.", e);
 			}
 		}
 		
