@@ -6,6 +6,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.Observable;
 
+import pt.promatik.moss.utils.Utils;
 import pt.promatik.moss.vo.UserVO;
 
 import java.io.BufferedReader;

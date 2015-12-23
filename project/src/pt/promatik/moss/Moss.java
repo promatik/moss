@@ -5,6 +5,9 @@ import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import pt.promatik.moss.utils.HttpRequest;
+import pt.promatik.moss.utils.MySQL;
+import pt.promatik.moss.utils.Utils;
 import pt.promatik.moss.vo.UserVO;
 
 public abstract class Moss
@@ -15,6 +18,7 @@ public abstract class Moss
 	
 	public Server srv;
 	public MySQL mysql = new MySQL();
+	public HttpRequest http = new HttpRequest();
 	public int log = Utils.LOG_ERRORS;
 	
 	private Timer appTimer = new Timer();
@@ -42,7 +46,7 @@ public abstract class Moss
     
     protected void start(int port, int log)
     {
-    	System.out.println("MOSS v0.2 - Multiplayer Online Socket Server"/*\nCopyright @promatik*/);
+    	System.out.println("MOSS v1.0.1 - Multiplayer Online Socket Server\nCopyright @promatik");
     	if(instance == null) instance = this;
     	SERVER_PORT = port;
     	this.log = log;

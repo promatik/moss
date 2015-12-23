@@ -1,4 +1,4 @@
-package pt.promatik.moss;
+package pt.promatik.moss.utils;
 
 import java.sql.Connection;
 import java.sql.DriverManager;

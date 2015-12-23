@@ -1,4 +1,4 @@
-package pt.promatik.moss;
+package pt.promatik.moss.utils;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -6,6 +6,8 @@ import java.util.HashMap;
 import java.util.Random;
 
 import org.json.JSONObject;
+
+import pt.promatik.moss.Moss;
 
 public class Utils{
 	public final static int LOG_NONE = 0;
@@ -56,5 +58,17 @@ public class Utils{
     public static JSONObject JSONParse(String json)
     {
     	return new JSONObject(json);
+    }
+
+    public static HashMap<String, Object> map(Object... args) throws Exception {
+    	if(args.length % 2 == 1)
+    		throw new Exception("Odd number of arguments");
+    	
+    	HashMap<String, Object> r = new HashMap<>();
+    	for (int i = 0; i < args.length; i+=2) {
+    		r.put((String) args[i], args[i+1]);
+		}
+    	
+		return r;
     }
 }
