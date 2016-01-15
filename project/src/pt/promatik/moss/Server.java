@@ -46,38 +46,38 @@ public class Server extends Thread
 		
 		Moss.instance.serverStarted();
 	}
-    
-    public Collection<Room> getRooms() {
-    	return rooms.values();
-    }
-    
-    public synchronized Room getRoom(String id) {
-    	Room r = rooms.get(id);
-    	if(r == null) {
-    		r = new Room(id);
-    		rooms.put(id, r);
-    	}
-    	return r;
-    }
-
-    public synchronized void removeUser(User user) {
-    	users.remove(user);
-    }
-    
-    public synchronized void pingUsers() {
-    	for (User user : users) {
-    		user.invoke("ping");
+	
+	public Collection<Room> getRooms() {
+		return rooms.values();
+	}
+	
+	public synchronized Room getRoom(String id) {
+		Room r = rooms.get(id);
+		if(r == null) {
+			r = new Room(id);
+			rooms.put(id, r);
 		}
-    }
-    
-    public synchronized void checkDoubleLogin(String id) {
-    	for (Room room : rooms.values()) {
-    		User user = room.users.get(id);
+		return r;
+	}
+
+	public synchronized void removeUser(User user) {
+		users.remove(user);
+	}
+	
+	public synchronized void pingUsers() {
+		for (User user : users) {
+			user.invoke("ping");
+		}
+	}
+	
+	public synchronized void checkDoubleLogin(String id) {
+		for (Room room : rooms.values()) {
+			User user = room.users.get(id);
 			if(user != null) {
 				user.doubleLogin();
 			}
 		}
-    }
+	}
 	
 	public void run()
 	{

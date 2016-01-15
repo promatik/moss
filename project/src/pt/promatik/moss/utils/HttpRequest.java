@@ -36,16 +36,16 @@ public class HttpRequest {
 			throw new Exception("HttpRequest is not initialized, run http.init()");
 		
 		StringBuilder postData = new StringBuilder();
-        for (Map.Entry<String,Object> param : params.entrySet()) {
-            if (postData.length() != 0) postData.append('&');
-            postData.append(URLEncoder.encode(param.getKey(), encoding));
-            postData.append('=');
-            postData.append(URLEncoder.encode(String.valueOf(param.getValue()), encoding));
-        }
+		for (Map.Entry<String,Object> param : params.entrySet()) {
+			if (postData.length() != 0) postData.append('&');
+			postData.append(URLEncoder.encode(param.getKey(), encoding));
+			postData.append('=');
+			postData.append(URLEncoder.encode(String.valueOf(param.getValue()), encoding));
+		}
 		
 		byte[] postDataB = postData.toString().getBytes(StandardCharsets.UTF_8);
 		URL url = new URL(host);
-		HttpURLConnection conn = (HttpURLConnection) url.openConnection();           
+		HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 		conn.setDoOutput(true);
 		conn.setInstanceFollowRedirects(false);
 		conn.setRequestMethod(method);
@@ -59,10 +59,10 @@ public class HttpRequest {
 		
 		String res = "";
 		Reader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), encoding));
-        for (int c; (c = in.read()) >= 0; res += (char) c);
+		for (int c; (c = in.read()) >= 0; res += (char) c);
 		return res;
 		
-    }
+	}
 	
 	
 }

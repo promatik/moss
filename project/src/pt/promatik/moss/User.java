@@ -142,7 +142,7 @@ public class User extends Observable
 					if(result.contains("|")) {
 						validConn = true;
 						processMessage(result);
-					    result = "";
+						result = "";
 					}
 					
 					// Flash privacy policy
