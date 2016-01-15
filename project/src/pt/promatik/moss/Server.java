@@ -87,6 +87,8 @@ public class Server extends Thread
 		{
 			try {
 				socket = serverSocket.accept();
+				socket.setSoTimeout(Moss.instance.socketTimeout);
+				
 				users.add(new User(socket));
 				Utils.log("Client " + socket + " has connected.");
 			} catch(IOException e) {

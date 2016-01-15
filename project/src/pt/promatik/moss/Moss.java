@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.regex.Pattern;
 
 import pt.promatik.moss.utils.HttpRequest;
 import pt.promatik.moss.utils.MySQL;
@@ -20,6 +21,7 @@ public abstract class Moss
 	public MySQL mysql = new MySQL();
 	public HttpRequest http = new HttpRequest();
 	public int log = Utils.LOG_ERRORS;
+	public int socketTimeout = 0;
 	
 	private Timer appTimer = new Timer();
 	
@@ -46,7 +48,7 @@ public abstract class Moss
     
     protected void start(int port, int log)
     {
-    	System.out.println("MOSS v1.0.1 - Multiplayer Online Socket Server\nCopyright @promatik");
+    	System.out.println("MOSS v1.0.2 - Multiplayer Online Socket Server\nCopyright @promatik");
     	if(instance == null) instance = this;
     	SERVER_PORT = port;
     	this.log = log;
@@ -57,13 +59,19 @@ public abstract class Moss
     	srv = new Server(port);
     	new Thread(srv).start();
     	
+    	Utils.patternMessage = Pattern.compile("^#MOSS#<!(.+)!>#<!(.+)?!>#<!(.+)?!>#$");
+    	Utils.patternPingPong = Pattern.compile("p[i|o]ng");
+    }
+    
+    protected void startPingTimer(int interval)
+    {
     	Timer pingTimer = new Timer();
     	pingTimer.schedule(new TimerTask() {
 			@Override
 			public void run() {
 				srv.pingUsers();
 			}
-		}, 0, 60000); // 1 minute
+		}, 0, interval);
     }
     
     protected void startTimer(int interval)
@@ -109,7 +117,7 @@ public abstract class Moss
 		try {
 			srv.getRoom(user.room).users.get(user.id).setStatus(status);
 		} catch (Exception e) {
-			Utils.log("User " + user.id + " not found");
+			Utils.log("User " + user.id + " not found", e);
 		}
     }
     
@@ -161,7 +169,7 @@ public abstract class Moss
 			srv.getRoom(room).users.get(id).invoke(from, command, message);
 			return true;
 		} catch (Exception e) {
-			Utils.log("User " + id + " not found");
+			Utils.log("User " + id + " not found (" + command + " was not sent)");
 			return false;
 		}
     }

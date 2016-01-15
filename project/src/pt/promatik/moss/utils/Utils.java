@@ -4,6 +4,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Random;
+import java.util.regex.Pattern;
 
 import org.json.JSONObject;
 
@@ -13,8 +14,10 @@ public class Utils{
 	public final static int LOG_NONE = 0;
 	public final static int LOG_DEFAULT = 1;
 	public final static int LOG_ERRORS = 2;
+	public final static int LOG_FULL = 3;
 	
 	public static Random random = new Random(System.nanoTime());
+	public static Pattern patternMessage, patternPingPong;
 	
     public static void log(String message)
     {
@@ -35,7 +38,7 @@ public class Utils{
     public static void log(String message, String ref)
     {
     	if(Moss.instance.log >= LOG_DEFAULT) {
-    		System.out.println("MOSS " + new SimpleDateFormat("HH:mm:ss").format(new Date()) + "> " + (ref.equals("") ? message : ref + ": " + message));
+    		System.out.println( (ref.equals("") ? "MOSS" : ref) + " " + new SimpleDateFormat("HH:mm:ss").format(new Date()) + "> " + message);
     	}
     }
     

@@ -3,7 +3,6 @@ package pt.promatik.moss;
 import java.net.Socket;
 import java.util.List;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.Observable;
 
 import pt.promatik.moss.utils.Utils;
@@ -17,22 +16,52 @@ import java.io.OutputStreamWriter;
 
 public class User extends Observable
 {
-	private Socket socket;
+	private Socket socket = null;
 	private BufferedReader in;
 	private BufferedWriter out;
 
-	public boolean isConnected;
+	public boolean isConnected = false;
 	public String id = null;
 	public String room = "";
 	private String status = "";
 	private boolean protocolConn = false;
 	private boolean validConn = false;
-	
+	private Matcher match;
+
 	public User(Socket newSocket)
 	{
 		socket = newSocket;
-		isConnected = true;
-		new Inport().start();
+		start();
+	}
+	
+	public User()
+	{
+		
+	}
+	
+	public User(String id)
+	{
+		this.id = id;
+	}
+	
+	public User(String id, String room)
+	{
+		this.id = id;
+		this.room = room;
+	}
+	
+	public void start(Socket newSocket)
+	{
+		socket = newSocket;
+		start();
+	}
+	
+	public void start()
+	{
+		if(socket != null) {
+			isConnected = true;
+			new Inport().start();
+		}
 	}
 	
 	public String toString(){
@@ -145,13 +174,12 @@ public class User extends Observable
 		// #MOSS#<!invokeOnAll	!>#<!(command)&!(message)				!>#<!request!>#|
 		
 		msg = msg.replaceAll("\\|", "");
-		Pattern p = Pattern.compile("^#MOSS#<!(.+)!>#<!(.+)?!>#<!(.+)?!>#$");
-		Matcher m = p.matcher(msg);
+		match = Utils.patternMessage.matcher(msg);
 		
-		if (m.matches()) {
-			String command = m.group(1) + "";
-			String message = m.group(2) + "";
-			String request = m.group(3) + "";
+		if (match.matches()) {
+			String command = match.group(1) + "";
+			String message = match.group(2) + "";
+			String request = match.group(3) + "";
 			String[] messages = null;
 			if(!message.equals(""))
 				messages = message.split(Moss.MSG_DELIMITER);
@@ -242,12 +270,20 @@ public class User extends Observable
 					}
 					invoke("invokeOnAll", status ? "ok" : "error", request);
 					break;
+				case "ping": 
+					invoke("pong", "ok", request);
+					break;
+				case "pong": 
+				case "": 
+					break;
 				default: 
 					Moss.instance.userMessage(this, command, message, request);
 					break;
 			}
 			
-			Utils.log(this.id + ", " + command + ", " + message);
+			match = Utils.patternPingPong.matcher(command + message);
+			if (!match.find() || Moss.instance.log >= Utils.LOG_FULL)
+				Utils.log(this.id + ", " + command + ", " + message);
 		}
 	}
 	
