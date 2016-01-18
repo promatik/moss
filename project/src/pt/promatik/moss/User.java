@@ -290,10 +290,7 @@ public class User extends Observable
 	protected void doubleLogin()
 	{
 		invoke("doublelogin");
-		Moss.instance.srv.getRoom(this.room).remove(this);
-		Moss.instance.srv.removeUser(this);
-		if(this.id != null)
-			Moss.instance.userDisconnected(this);
+		disconnect();
 	}
 	
 	public void disconnect()
