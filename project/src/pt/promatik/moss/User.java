@@ -1,6 +1,7 @@
 package pt.promatik.moss;
 
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.Observable;
@@ -72,42 +73,45 @@ public class User extends Observable
 		return new UserVO(id, room);
 	}
 	
-	public void invoke(String command)
+	public boolean invoke(String command)
 	{
-		invoke(null, command, "", "");
+		return invoke(null, command, "", "");
 	}
 	
-	public void invoke(User from, String command)
+	public boolean invoke(User from, String command)
 	{
-		invoke(from, command, "", "");
+		return invoke(from, command, "", "");
 	}
 	
-	public void invoke(String command, String request)
+	public boolean invoke(String command, String request)
 	{
-		invoke(null, command, "", request);
+		return invoke(null, command, "", request);
 	}
 	
-	public void invoke(String command, String message, String request)
+	public boolean invoke(String command, String message, String request)
 	{
-		invoke(null, command, message, request);
+		return invoke(null, command, message, request);
 	}
 	
-	public void invoke(User from, String command, String message)
+	public boolean invoke(User from, String command, String message)
 	{
-		invoke(from, command, message, "");
+		return invoke(from, command, message, "");
 	}
 	
-	public void invoke(User from, String command, String message, String request)
+	public boolean invoke(User from, String command, String message, String request)
 	{
+		boolean sent = false;
 		try {
 			if(isConnected) {
 				out.write("#MOSS#<!" + command + "!>#<!" + (from != null ? from.toString() : "") + "!>#<!" + message + "!>#<!" + request + "!>#|");
 				out.flush();
+				sent = true;
 			}
 		} catch (IOException e) {
 			Utils.log("Connection io exception: " + e.toString(), e);
 			disconnect();
 		}
+		return sent;
 	}
 	
 	public String getStatus() {
@@ -172,6 +176,7 @@ public class User extends Observable
 		// #MOSS#<!invoke		!>#<!(id)&!(room)&!(command)&!(message)	!>#<!request!>#|
 		// #MOSS#<!invokeOnRoom	!>#<!(room)&!(command)&!(message)		!>#<!request!>#|
 		// #MOSS#<!invokeOnAll	!>#<!(command)&!(message)				!>#<!request!>#|
+		// #MOSS#<!setTimeOut	!>#<!(milliseconds)						!>#<!request!>#|
 		
 		msg = msg.replaceAll("\\|", "");
 		match = Utils.patternMessage.matcher(msg);
@@ -269,6 +274,18 @@ public class User extends Observable
 						status = true;
 					}
 					invoke("invokeOnAll", status ? "ok" : "error", request);
+					break;
+				case "setTimeOut": 
+					try {
+						int timeout = Integer.valueOf(message);
+						if(timeout >= 0 && timeout <= 600000) { // 10 minutes max
+							socket.setSoTimeout(timeout);
+							status = true;
+						}
+					} catch (SocketException e) {
+						e.printStackTrace();
+					}
+					invoke("setTimeOut", status ? "ok" : "error", request);
 					break;
 				case "ping": 
 					invoke("pong", "ok", request);

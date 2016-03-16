@@ -16,6 +16,7 @@ public abstract class Moss
 	public static Moss instance;
 	public static int SERVER_PORT = 30480;
 	public static final String MSG_DELIMITER = "&!";
+	public static final String VERSION = "1.0.3";
 	
 	public Server srv;
 	public MySQL mysql = new MySQL();
@@ -42,13 +43,18 @@ public abstract class Moss
 	
 	protected void start(String[] args)
 	{
-		if(args.length >= 2) start(args[0].equals("log") ? Integer.parseInt(args[1]) : log);
-		else start();
+		start(SERVER_PORT, args);
+	}
+	
+	protected void start(int port, String[] args)
+	{
+		if(args.length >= 2) start(port, args[0].equals("log") ? Integer.parseInt(args[1]) : log);
+		else start(port);
 	}
 	
 	protected void start(int port, int log)
 	{
-		System.out.println("MOSS v1.0.2 - Multiplayer Online Socket Server\nCopyright @promatik");
+		System.out.println("MOSS v" + VERSION + " - Multiplayer Online Socket Server\nCopyright @promatik");
 		if(instance == null) instance = this;
 		SERVER_PORT = port;
 		this.log = log;
@@ -165,13 +171,13 @@ public abstract class Moss
 	}
 	
 	public synchronized boolean invoke(User from, String id, String room, String command, String message) {
+		boolean sent = false;
 		try {
-			srv.getRoom(room).users.get(id).invoke(from, command, message);
-			return true;
+			sent = srv.getRoom(room).users.get(id).invoke(from, command, message);
 		} catch (Exception e) {
 			Utils.log("User " + id + " not found (" + command + " was not sent)");
-			return false;
 		}
+		return sent;
 	}
 	
 	public synchronized void invokeOnRoom(User from, String room, String command, String message) {
