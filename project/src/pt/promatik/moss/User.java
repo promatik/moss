@@ -194,8 +194,9 @@ public class User extends Observable
 		// #MOSS#<!invokeOnRoom	!>#<!(room)&!(command)&!(message)		!>#<!request!>#|
 		// #MOSS#<!invokeOnAll	!>#<!(command)&!(message)				!>#<!request!>#|
 		// #MOSS#<!setTimeOut	!>#<!(milliseconds)						!>#<!request!>#|
-		// #MOSS#<!randomPlayer !>#<!(room)								!>#<!request!>#|
-		// #MOSS#<!setData      !>#<!(attribute)&!(data)				!>#<!request!>#|
+		// #MOSS#<!randomPlayer	!>#<!(room)								!>#<!request!>#|
+		// #MOSS#<!setData		!>#<!(attribute)&!(data)				!>#<!request!>#|
+		// #MOSS#<!log			!>#<!(data)								!>#<!request!>#|
 		
 		msg = msg.replaceAll("\\|", "");
 		match = Utils.patternMessage.matcher(msg);
@@ -329,6 +330,8 @@ public class User extends Observable
 					}
 					invoke("setTimeOut", opStatus ? "ok" : "error", request);
 					break;
+				case "log":
+					MOSS.filelog.add(id(), message);
 				case "ping": 
 					invoke("pong", "ok", request);
 					break;
