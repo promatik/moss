@@ -2,8 +2,10 @@ package pt.promatik.moss;
 
 import java.net.Socket;
 import java.net.SocketException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.regex.Matcher;
+
 import java.util.Observable;
 
 import pt.promatik.moss.utils.Utils;
@@ -17,20 +19,35 @@ import java.io.OutputStreamWriter;
 
 public class User extends Observable
 {
+	public Moss MOSS;
+	public static final String MSG_USER_DELIMITER = "&;";
+	
 	private Socket socket = null;
 	private BufferedReader in;
 	private BufferedWriter out;
 
-	public boolean isConnected = false;
-	public String id = null;
-	public String room = "";
+	private boolean connected = false;
+	private String id = null;
+	private String room = "";
 	private String status = "";
+	private boolean available = true;
+	private HashMap<String, Object> data = new HashMap<String, Object>();
+	
 	private boolean protocolConn = false;
 	private boolean validConn = false;
 	private Matcher match;
 
-	public User(Socket newSocket)
+	// Getters
+	public String id(){ return id; }
+	public String room(){ return room; }
+	public String status(){ return status; }
+	public boolean isAvailable(){ return available; }
+	public boolean isConnected(){ return connected; }
+	public HashMap<String, Object> data(){ return data; }
+	
+	public User(Moss instance, Socket newSocket)
 	{
+		MOSS = instance;
 		socket = newSocket;
 		start();
 	}
@@ -51,7 +68,7 @@ public class User extends Observable
 		this.room = room;
 	}
 	
-	public void start(Socket newSocket)
+	public void start(Moss instance, Socket newSocket)
 	{
 		socket = newSocket;
 		start();
@@ -60,13 +77,14 @@ public class User extends Observable
 	public void start()
 	{
 		if(socket != null) {
-			isConnected = true;
+			connected = true;
 			new Inport().start();
 		}
 	}
 	
 	public String toString(){
-		return id + "," + room + "," + status;
+		String[] user = {id, room, status, (connected ? "on" : "off"), (available ? "1" : "0"), Utils.JSONStringify(data)};
+		return String.join(MSG_USER_DELIMITER, user);
 	}
 	
 	public UserVO getVO(){
@@ -102,7 +120,7 @@ public class User extends Observable
 	{
 		boolean sent = false;
 		try {
-			if(isConnected) {
+			if(connected) {
 				out.write("#MOSS#<!" + command + "!>#<!" + (from != null ? from.toString() : "") + "!>#<!" + message + "!>#<!" + request + "!>#|");
 				out.flush();
 				sent = true;
@@ -114,13 +132,12 @@ public class User extends Observable
 		return sent;
 	}
 	
-	public String getStatus() {
-		return status;
-	}
+	// GETS & SETS
+	public String getStatus() { return status; }
 	
-	public void setStatus(String status) {
-		this.status = status;
-	}
+	public String getAvailability() { return status; }
+	public void setAvailability(String status) { this.status = status; }
+	
 	
 	private class Inport extends Thread
 	{
@@ -140,7 +157,7 @@ public class User extends Observable
 				
 				char[] buff = new char[1];
 				int k = -1;
-				while( isConnected && (k = in.read(buff, 0, 1)) > -1 ) {
+				while( connected && (k = in.read(buff, 0, 1)) > -1 ) {
 					result += new String(buff, 0, k);
 					
 					if(result.contains("|")) {
@@ -177,6 +194,8 @@ public class User extends Observable
 		// #MOSS#<!invokeOnRoom	!>#<!(room)&!(command)&!(message)		!>#<!request!>#|
 		// #MOSS#<!invokeOnAll	!>#<!(command)&!(message)				!>#<!request!>#|
 		// #MOSS#<!setTimeOut	!>#<!(milliseconds)						!>#<!request!>#|
+		// #MOSS#<!randomPlayer !>#<!(room)								!>#<!request!>#|
+		// #MOSS#<!setData      !>#<!(attribute)&!(data)				!>#<!request!>#|
 		
 		msg = msg.replaceAll("\\|", "");
 		match = Utils.patternMessage.matcher(msg);
@@ -193,19 +212,19 @@ public class User extends Observable
 				return;
 			
 			String result = "";
-			boolean status = false;
+			boolean opStatus = false;
 			switch(command){
 				case "connect": 
 					if (messages.length >= 2) {
 						this.id = messages[0];
 						this.room = messages[1];
 						if (messages.length == 3)
-							this.status = messages[2];
+							status = messages[2];
 						
-						Moss.instance.srv.checkDoubleLogin(this.id);
-						Moss.instance.srv.getRoom(this.room).add(this.id, this);
+						MOSS.srv.checkDoubleLogin(this.id);
+						MOSS.srv.getRoom(this.room).add(this.id, this);
 						if(!this.id.equals("0"))
-							Moss.instance.userConnected(this);
+							MOSS.userConnected(this);
 						invoke("connected", request);
 					}
 					break;
@@ -215,34 +234,42 @@ public class User extends Observable
 					break;
 				case "updateStatus": 
 					if (messages.length == 1) {
-						setStatus(messages[0]);
+						status = messages[0];
 						invoke("statusUpdated", messages[0], request);
-						Moss.instance.userUpdatedStatus(this, this.status);
+						MOSS.userUpdatedStatus(this, status);
+					}
+					break;
+				case "updateAvailability": 
+					if (messages.length == 1) {
+						available = messages[0].equals("1");
+						invoke("availabilityUpdated", messages[0], request);
+						MOSS.userUpdatedAvailability(this, this.available);
 					}
 					break;
 				case "getUser": 
 					if (messages.length == 2) {
-						User user = Moss.instance.getUserByID(new UserVO(messages[0], messages[1]));
+						UserVO uvo = new UserVO(messages[0], messages[1]);
+						User user = MOSS.getUserByID(uvo);
 						if(user != null)
-							result = user.id + "," + user.room + "," + user.status + "," + "on";
+							result = user.toString();
 						else
-							result = messages[0] + "," + messages[1] + ",," + "off";
+							result = uvo.toString();
 					}
 					invoke("user", result, request);
 					break;
 				case "getUsers": 
 					List<User> users = null;
 					if (messages.length == 1) {
-						users = Moss.instance.getUsers(messages[0]);
+						users = MOSS.getUsers(messages[0]);
 					}
 					else if (messages.length == 3) {
-						users = Moss.instance.getUsers(messages[0], Integer.parseInt(messages[1]), Integer.parseInt(messages[2]));
+						users = MOSS.getUsers(messages[0], Integer.parseInt(messages[1]), Integer.parseInt(messages[2]));
 					}
 					
 					boolean first = true;
 					if(users != null) {
 						for (User user : users) {
-							result += (!first ? Moss.MSG_DELIMITER : "") + user.id + "," + user.room + "," + user.status;
+							result += (!first ? Moss.MSG_DELIMITER : "") + user.toString();
 							first = false;
 						}
 					}
@@ -250,42 +277,57 @@ public class User extends Observable
 					break;
 				case "getUsersCount": 
 					if (messages.length == 1) {
-						int total = Moss.instance.getUsersCount(messages[0]);
+						int total = MOSS.getUsersCount(messages[0]);
 						invoke("usersCount", String.valueOf(total), request);
+					}
+					break;
+				case "setData": 
+					if (messages.length == 2) {
+						data.put(messages[0], messages[1]);
+					} else if (messages.length == 1) {
+						data.remove(messages[0]);
+					}
+					
+					invoke("setData", "ok", request);
+					break;
+				case "randomPlayer": 
+					if (messages.length == 1) {
+						User player = MOSS.pickRandomPlayer(id, messages[0]);
+						invoke("randomPlayer", (player != null ? player.toString() : "null"), request);
 					}
 					break;
 				case "invoke":
 					String optionalMessage = (messages.length == 4 ? messages[3] : "");
 					if (messages.length >= 3) 
-						status = Moss.instance.invoke(this, messages[0], messages[1], messages[2], optionalMessage);
+						opStatus = MOSS.invoke(this, messages[0], messages[1], messages[2], optionalMessage);
 					
-					invoke("invoke", status ? "ok" : "error", request);
+					invoke("invoke", opStatus ? "ok" : "error", request);
 					break;
 				case "invokeOnRoom": 
 					if (messages.length == 3) {
-						Moss.instance.invokeOnRoom(this, messages[0], messages[1], messages[2]);
-						status = true;
+						MOSS.invokeOnRoom(this, messages[0], messages[1], messages[2]);
+						opStatus = true;
 					}
-					invoke("invokeOnRoom", status ? "ok" : "error", request);
+					invoke("invokeOnRoom", opStatus ? "ok" : "error", request);
 					break;
 				case "invokeOnAll": 
 					if (messages.length >= 1) {
-						Moss.instance.invokeOnAll(this, messages[0], messages[1]);
-						status = true;
+						MOSS.invokeOnAll(this, messages[0], messages[1]);
+						opStatus = true;
 					}
-					invoke("invokeOnAll", status ? "ok" : "error", request);
+					invoke("invokeOnAll", opStatus ? "ok" : "error", request);
 					break;
 				case "setTimeOut": 
 					try {
 						int timeout = Integer.valueOf(message);
 						if(timeout >= 0 && timeout <= 600000) { // 10 minutes max
 							socket.setSoTimeout(timeout);
-							status = true;
+							opStatus = true;
 						}
 					} catch (SocketException e) {
 						e.printStackTrace();
 					}
-					invoke("setTimeOut", status ? "ok" : "error", request);
+					invoke("setTimeOut", opStatus ? "ok" : "error", request);
 					break;
 				case "ping": 
 					invoke("pong", "ok", request);
@@ -294,12 +336,13 @@ public class User extends Observable
 				case "": 
 					break;
 				default: 
-					Moss.instance.userMessage(this, command, message, request);
+					notifyObservers(new UserNotification(UserNotification.MESSAGE, this, new Object[] {command, message, request}));
+					MOSS.userMessage(this, command, message, request);
 					break;
 			}
 			
 			match = Utils.patternPingPong.matcher(command + message);
-			if (!match.find() || Moss.instance.log >= Utils.LOG_FULL)
+			if (!match.find() || MOSS.log >= Utils.LOG_FULL)
 				Utils.log(this.id + ", " + command + ", " + message);
 		}
 	}
@@ -313,9 +356,9 @@ public class User extends Observable
 	public void disconnect()
 	{
 		setChanged();
-		notifyObservers(this.id);
+		notifyObservers(new UserNotification(UserNotification.DISCONNECTED, this, null));
 		
-		if(!isConnected)
+		if(!connected)
 			return;
 		
 		if(!protocolConn)
@@ -323,12 +366,12 @@ public class User extends Observable
 		
 		try
 		{
-			Moss.instance.srv.getRoom(this.room).remove(this);
-			Moss.instance.srv.removeUser(this);
+			MOSS.srv.getRoom(this.room).remove(this);
+			MOSS.srv.removeUser(this);
 			if(this.id != null)
-				Moss.instance.userDisconnected(this);
+				MOSS.userDisconnected(this);
 			
-			isConnected = false;
+			connected = false;
 			in.close();
 			out.close();
 			socket.close();

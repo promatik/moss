@@ -1,6 +1,7 @@
 package pt.promatik.moss.utils;
 
 import java.text.SimpleDateFormat;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Random;
@@ -8,9 +9,8 @@ import java.util.regex.Pattern;
 
 import org.json.JSONObject;
 
-import pt.promatik.moss.Moss;
-
 public class Utils{
+	public static int log_level = 3;
 	public final static int LOG_NONE = 0;
 	public final static int LOG_DEFAULT = 1;
 	public final static int LOG_ERRORS = 2;
@@ -37,14 +37,14 @@ public class Utils{
 	
 	public static void log(String message, String ref)
 	{
-		if(Moss.instance.log >= LOG_DEFAULT) {
+		if(log_level >= LOG_DEFAULT) {
 			System.out.println( (ref.equals("") ? "MOSS" : ref) + " " + new SimpleDateFormat("HH:mm:ss").format(new Date()) + "> " + message);
 		}
 	}
 	
 	public static void log(Exception e)
 	{
-		if(Moss.instance.log >= LOG_ERRORS) {
+		if(log_level >= LOG_ERRORS) {
 			e.printStackTrace();
 		}
 	}
@@ -52,8 +52,9 @@ public class Utils{
 	public static String JSONStringify(HashMap<String, Object> args)
 	{
 		JSONObject json = new JSONObject();
-		for (String key : args.keySet())
-			json.put(key, args.get(key));
+		if(args != null)
+			for (String key : args.keySet())
+				json.put(key, args.get(key));
 		
 		return json.toString();
 	}
@@ -61,6 +62,10 @@ public class Utils{
 	public static JSONObject JSONParse(String json)
 	{
 		return new JSONObject(json);
+	}
+	
+	public static HashMap<String, Object> map(String... args) throws Exception {
+		return map((Object[]) args);
 	}
 
 	public static HashMap<String, Object> map(Object... args) throws Exception {
@@ -73,5 +78,12 @@ public class Utils{
 		}
 		
 		return r;
+	}
+	
+	public static <T> T random(Collection<T> coll) {
+		if(coll.size() == 0) return null;
+		int num = (int) (Math.random() * coll.size());
+		for(T t: coll) if (--num < 0) return t;
+		throw new AssertionError();
 	}
 }

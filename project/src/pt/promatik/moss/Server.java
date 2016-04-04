@@ -13,6 +13,8 @@ import pt.promatik.moss.utils.Utils;
 
 public class Server extends Thread
 {
+	public Moss MOSS;
+	
 	private ServerSocket serverSocket;
 	private InetAddress hostAddress;
 	private Socket socket;
@@ -21,8 +23,10 @@ public class Server extends Thread
 	private Vector<User> users = new Vector<User>();
 	private HashMap<String, Room> rooms = new HashMap<String, Room>();
 	
-	public Server(int port)
+	public Server(Moss instance, int port)
 	{
+		MOSS = instance;
+		
 		try
 		{
 			hostAddress = InetAddress.getLocalHost();
@@ -44,7 +48,11 @@ public class Server extends Thread
 			return;
 		}
 		
-		Moss.instance.serverStarted();
+		MOSS.serverStarted();
+	}
+	
+	public Collection<User> getUsers() {
+		return users;
 	}
 	
 	public Collection<Room> getRooms() {
@@ -87,16 +95,16 @@ public class Server extends Thread
 		{
 			try {
 				socket = serverSocket.accept();
-				socket.setSoTimeout(Moss.instance.socketTimeout);
+				socket.setSoTimeout(MOSS.socketTimeout);
 				
-				users.add(new User(socket));
+				users.add(new User(MOSS, socket));
 				Utils.log("Client " + socket + " has connected.");
 			} catch(IOException e) {
 				Utils.log("Could not get a client.", e);
 			}
 		}
 		
-		Moss.instance.serverStopped();
+		MOSS.serverStopped();
 	}
 	
 	public void quit() {

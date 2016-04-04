@@ -30,7 +30,7 @@ public class Room {
 	
 	public void remove(User user)
 	{
-		users.remove(user.id);
+		users.remove(user.id());
 	}
 	
 	public int count()

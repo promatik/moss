@@ -1,11 +1,15 @@
 package pt.promatik.moss;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.Vector;
 import java.util.regex.Pattern;
 
+import pt.promatik.moss.utils.FileLogger;
 import pt.promatik.moss.utils.HttpRequest;
 import pt.promatik.moss.utils.MySQL;
 import pt.promatik.moss.utils.Utils;
@@ -13,13 +17,13 @@ import pt.promatik.moss.vo.UserVO;
 
 public abstract class Moss
 {
-	public static Moss instance;
 	public static int SERVER_PORT = 30480;
 	public static final String MSG_DELIMITER = "&!";
-	public static final String VERSION = "1.0.3";
+	public static final String VERSION = "1.1.0";
 	
 	public Server srv;
 	public MySQL mysql = new MySQL();
+	public FileLogger filelog = new FileLogger();
 	public HttpRequest http = new HttpRequest();
 	public int log = Utils.LOG_ERRORS;
 	public int socketTimeout = 0;
@@ -28,7 +32,7 @@ public abstract class Moss
 	
 	public Moss()
 	{
-		instance = this;
+		Utils.log_level = log;
 	}
 	
 	protected void start()
@@ -48,21 +52,29 @@ public abstract class Moss
 	
 	protected void start(int port, String[] args)
 	{
-		if(args.length >= 2) start(port, args[0].equals("log") ? Integer.parseInt(args[1]) : log);
+		int argLog = log;
+		try {
+			HashMap<String, Object> map = Utils.map(args);
+			if(map.get("log") != null)
+				argLog = Integer.parseInt((String) map.get("log"));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		if(args.length >= 2) start(port, argLog);
 		else start(port);
 	}
 	
 	protected void start(int port, int log)
 	{
 		System.out.println("MOSS v" + VERSION + " - Multiplayer Online Socket Server\nCopyright @promatik");
-		if(instance == null) instance = this;
 		SERVER_PORT = port;
 		this.log = log;
 		
-		Utils.log("Starting Server");
+		Utils.log("Starting Server on port " + String.valueOf(port));
 		Utils.log("Log level " + String.valueOf(log));
 		
-		srv = new Server(port);
+		srv = new Server(this, port);
 		new Thread(srv).start();
 		
 		Utils.patternMessage = Pattern.compile("^#MOSS#<!(.+)!>#<!(.+)?!>#<!(.+)?!>#$");
@@ -114,27 +126,25 @@ public abstract class Moss
 	abstract public void userConnected(User user);
 	abstract public void userDisconnected(User user);
 	abstract public void userUpdatedStatus(User user, String status);
+	abstract public void userUpdatedAvailability(User user, boolean availability);
 	abstract public void userMessage(User user, String command, String message, String request);
 	
 	// -----------------
 	// User
-	
-	public synchronized void updateStatus(UserVO user, String status) {
-		try {
-			srv.getRoom(user.room).users.get(user.id).setStatus(status);
-		} catch (Exception e) {
-			Utils.log("User " + user.id + " not found", e);
-		}
-	}
 	
 	public List<User> getUsers(String room) {
 		return getUsers(room, 20, 0);
 	}
 	
 	public synchronized List<User> getUsers(String room, int limit, int page) {
+		
+		Utils.log("getUsers: " + room + ", " + limit + ", " + page);
+		
 		ArrayList<User> users = new ArrayList<User>(srv.getRoom(room).users.values());
 		if(users.size() == 0)
 			return null;
+		
+		Utils.log("getUsers: " + users.size());
 		
 		int limit_min = page * limit;
 		int limit_max = (page + 1) * limit;
@@ -144,6 +154,7 @@ public abstract class Moss
 		List<User> result = null;
 		try {
 			result = users.subList(limit_min, limit_max);
+			Utils.log("getUsers: " + result.size());
 			return result;
 		} catch (Exception e) {
 			Utils.log(e);
@@ -168,6 +179,24 @@ public abstract class Moss
 	
 	public synchronized int getUsersCount(String room) {
 		return srv.getRoom(room).users.size();
+	}
+	
+	public synchronized User pickRandomPlayer(String myId) {
+		return randomPlayer(myId, srv.getUsers());
+	}
+	
+	public synchronized User pickRandomPlayer(String myId, String room) {
+		return randomPlayer(myId, srv.getRoom(room).users.values());
+	}
+	
+	private synchronized User randomPlayer(String myId, Collection<User> users){
+		Vector<User> list = new Vector<User>();
+		for (User user : users) {
+			if(!user.id().equals(myId) && user.isAvailable())
+				list.add(user);
+		}
+		
+		return Utils.random(list);
 	}
 	
 	public synchronized boolean invoke(User from, String id, String room, String command, String message) {
