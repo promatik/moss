@@ -169,7 +169,7 @@ public class User extends Observable
 					// Flash privacy policy
 					if(!validConn && result.equals("<policy-file-request/>")) {
 						protocolConn = true;
-						out.write("<?xml version=\"1.0\"?><cross-domain-policy><allow-access-from domain=\"*\" to-ports=\"" + Moss.SERVER_PORT + "\" /></cross-domain-policy>\0");
+						out.write("<?xml version=\"1.0\"?><cross-domain-policy><allow-access-from domain=\"*\" to-ports=\"" + MOSS.server_port + "\" /></cross-domain-policy>\0");
 						out.flush();
 					}
 				}

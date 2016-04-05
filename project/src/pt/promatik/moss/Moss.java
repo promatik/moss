@@ -17,10 +17,10 @@ import pt.promatik.moss.vo.UserVO;
 
 public abstract class Moss
 {
-	public static int SERVER_PORT = 30480;
 	public static final String MSG_DELIMITER = "&!";
 	public static final String VERSION = "1.1.0";
-	
+
+	public int server_port = 30480;
 	public Server srv;
 	public MySQL mysql = new MySQL();
 	public FileLogger filelog = new FileLogger();
@@ -37,17 +37,17 @@ public abstract class Moss
 	
 	protected void start()
 	{
-		start(SERVER_PORT, log);
+		start(server_port, log);
 	}
 	
 	protected void start(int log)
 	{
-		start(SERVER_PORT, log);
+		start(server_port, log);
 	}
 	
 	protected void start(String[] args)
 	{
-		start(SERVER_PORT, args);
+		start(server_port, args);
 	}
 	
 	protected void start(int port, String[] args)
@@ -68,7 +68,7 @@ public abstract class Moss
 	protected void start(int port, int log)
 	{
 		System.out.println("MOSS v" + VERSION + " - Multiplayer Online Socket Server\nCopyright @promatik");
-		SERVER_PORT = port;
+		server_port = port;
 		this.log = log;
 		
 		Utils.log("Starting Server on port " + String.valueOf(port));
