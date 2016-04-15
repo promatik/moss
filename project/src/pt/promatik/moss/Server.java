@@ -98,7 +98,8 @@ public class Server extends Thread
 				socket.setSoTimeout(MOSS.socketTimeout);
 				
 				users.add(new User(MOSS, socket));
-				Utils.log("Client " + socket + " has connected.");
+				if(Utils.log_level >= Utils.LOG_FULL)
+					Utils.log("Client " + socket + " has connected.");
 			} catch(IOException e) {
 				Utils.log("Could not get a client.", e);
 			}

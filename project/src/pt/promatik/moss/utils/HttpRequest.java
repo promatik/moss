@@ -33,7 +33,7 @@ public class HttpRequest {
 	
 	public String request(Map<String, Object> params) throws Exception {
 		if(host.equals(""))
-			throw new Exception("HttpRequest is not initialized, run http.init()");
+			new Exception("HttpRequest is not initialized, run http.init()");
 		
 		StringBuilder postData = new StringBuilder();
 		for (Map.Entry<String,Object> param : params.entrySet()) {

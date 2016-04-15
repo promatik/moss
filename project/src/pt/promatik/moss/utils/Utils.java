@@ -64,13 +64,13 @@ public class Utils{
 		return new JSONObject(json);
 	}
 	
-	public static HashMap<String, Object> map(String... args) throws Exception {
+	public static HashMap<String, Object> map(String... args) {
 		return map((Object[]) args);
 	}
 
-	public static HashMap<String, Object> map(Object... args) throws Exception {
+	public static HashMap<String, Object> map(Object... args) {
 		if(args.length % 2 == 1)
-			throw new Exception("Odd number of arguments");
+			new Exception("Odd number of arguments");
 		
 		HashMap<String, Object> r = new HashMap<>();
 		for (int i = 0; i < args.length; i+=2) {
@@ -85,5 +85,9 @@ public class Utils{
 		int num = (int) (Math.random() * coll.size());
 		for(T t: coll) if (--num < 0) return t;
 		throw new AssertionError();
+	}
+	
+	public static int random(int min, int max){
+		return min + (int)(Math.random() * (max - min + 1));
 	}
 }

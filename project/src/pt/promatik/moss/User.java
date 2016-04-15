@@ -332,6 +332,8 @@ public class User extends Observable
 					break;
 				case "log":
 					MOSS.filelog.add(id(), message);
+					invoke("log", "ok", request);
+					break;
 				case "ping": 
 					invoke("pong", "ok", request);
 					break;
@@ -339,7 +341,8 @@ public class User extends Observable
 				case "": 
 					break;
 				default: 
-					notifyObservers(new UserNotification(UserNotification.MESSAGE, this, new Object[] {command, message, request}));
+					UserNotification u = new UserNotification(UserNotification.MESSAGE, this, command, message, request);
+					dispatchNotification(u);
 					MOSS.userMessage(this, command, message, request);
 					break;
 			}
@@ -348,6 +351,12 @@ public class User extends Observable
 			if (!match.find() || MOSS.log >= Utils.LOG_FULL)
 				Utils.log(this.id + ", " + command + ", " + message);
 		}
+	}
+
+	private void dispatchNotification(UserNotification notification)
+	{
+		setChanged();
+		notifyObservers(notification);
 	}
 	
 	protected void doubleLogin()
@@ -358,8 +367,7 @@ public class User extends Observable
 	
 	public void disconnect()
 	{
-		setChanged();
-		notifyObservers(new UserNotification(UserNotification.DISCONNECTED, this, null));
+		dispatchNotification(new UserNotification(UserNotification.DISCONNECTED, this));
 		
 		if(!connected)
 			return;
