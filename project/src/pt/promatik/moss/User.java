@@ -2,6 +2,7 @@ package pt.promatik.moss;
 
 import java.net.Socket;
 import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -83,7 +84,7 @@ public class User extends Observable
 	}
 	
 	public String toString(){
-		String[] user = {id, room, status, (connected ? "on" : "off"), (available ? "1" : "0"), Utils.JSONStringify(data)};
+		String[] user = {id, room, status, (connected ? ON : OFF), (available ? "1" : "0"), Utils.JSONStringify(data)};
 		return String.join(MSG_USER_DELIMITER, user);
 	}
 	
@@ -101,9 +102,9 @@ public class User extends Observable
 		return invoke(from, command, "", "");
 	}
 	
-	public boolean invoke(String command, String request)
+	public boolean invoke(String command, String message)
 	{
-		return invoke(null, command, "", request);
+		return invoke(null, command, message, "");
 	}
 	
 	public boolean invoke(String command, String message, String request)
@@ -173,6 +174,8 @@ public class User extends Observable
 						out.flush();
 					}
 				}
+			} catch (SocketTimeoutException e) {
+				Utils.log("Connection reset exception: " + e.toString());
 			} catch (Exception e) {
 				Utils.log("Connection reset exception: " + e.toString(), e);
 			} finally {
@@ -180,6 +183,25 @@ public class User extends Observable
 			}
 		}
 	}
+	
+	private final String CONNECT = "connect";
+	private final String DISCONNECT = "disconnect";
+	private final String UPDATE_STATUS = "updateStatus";
+	private final String UPDATE_AVAILABILITY = "updateAvailability";
+	private final String GET_USER = "getUser";
+	private final String GET_USERS = "getUsers";
+	private final String GET_USERS_COUNT = "getUsersCount";
+	private final String SET_DATA = "setData";
+	private final String RANDOM_PLAYER = "randomPlayer";
+	private final String INVOKE = "invoke";
+	private final String INVOKE_ON_ROOM = "invokeOnRoom";
+	private final String INVOKE_ON_ALL = "invokeOnAll";
+	private final String SET_TIME_OUT = "setTimeOut";
+	private final String LOG = "log";
+	private final String PING = "ping";
+	private final String PONG = "pong";
+	private final String ON = "on";
+	private final String OFF = "off";
 	
 	public void processMessage(String msg)
 	{
@@ -215,7 +237,7 @@ public class User extends Observable
 			String result = "";
 			boolean opStatus = false;
 			switch(command){
-				case "connect": 
+				case CONNECT: 
 					if (messages.length >= 2) {
 						this.id = messages[0];
 						this.room = messages[1];
@@ -226,28 +248,28 @@ public class User extends Observable
 						MOSS.srv.getRoom(this.room).add(this.id, this);
 						if(!this.id.equals("0"))
 							MOSS.userConnected(this);
-						invoke("connected", request);
+						invoke("connected", "", request);
 					}
 					break;
-				case "disconnect": 
-					invoke("disconnected", request);
+				case DISCONNECT: 
+					invoke("disconnected", "", request);
 					disconnect();
 					break;
-				case "updateStatus": 
+				case UPDATE_STATUS: 
 					if (messages.length == 1) {
 						status = messages[0];
 						invoke("statusUpdated", messages[0], request);
 						MOSS.userUpdatedStatus(this, status);
 					}
 					break;
-				case "updateAvailability": 
+				case UPDATE_AVAILABILITY: 
 					if (messages.length == 1) {
 						available = messages[0].equals("1");
 						invoke("availabilityUpdated", messages[0], request);
 						MOSS.userUpdatedAvailability(this, this.available);
 					}
 					break;
-				case "getUser": 
+				case GET_USER: 
 					if (messages.length == 2) {
 						UserVO uvo = new UserVO(messages[0], messages[1]);
 						User user = MOSS.getUserByID(uvo);
@@ -258,7 +280,7 @@ public class User extends Observable
 					}
 					invoke("user", result, request);
 					break;
-				case "getUsers": 
+				case GET_USERS: 
 					List<User> users = null;
 					if (messages.length == 1) {
 						users = MOSS.getUsers(messages[0]);
@@ -276,13 +298,13 @@ public class User extends Observable
 					}
 					invoke("users", result, request);
 					break;
-				case "getUsersCount": 
+				case GET_USERS_COUNT: 
 					if (messages.length == 1) {
 						int total = MOSS.getUsersCount(messages[0]);
 						invoke("usersCount", String.valueOf(total), request);
 					}
 					break;
-				case "setData": 
+				case SET_DATA: 
 					if (messages.length == 2) {
 						data.put(messages[0], messages[1]);
 					} else if (messages.length == 1) {
@@ -291,34 +313,34 @@ public class User extends Observable
 					
 					invoke("setData", "ok", request);
 					break;
-				case "randomPlayer": 
+				case RANDOM_PLAYER: 
 					if (messages.length == 1) {
 						User player = MOSS.pickRandomPlayer(id, messages[0]);
 						invoke("randomPlayer", (player != null ? player.toString() : "null"), request);
 					}
 					break;
-				case "invoke":
+				case INVOKE:
 					String optionalMessage = (messages.length == 4 ? messages[3] : "");
 					if (messages.length >= 3) 
 						opStatus = MOSS.invoke(this, messages[0], messages[1], messages[2], optionalMessage);
 					
 					invoke("invoke", opStatus ? "ok" : "error", request);
 					break;
-				case "invokeOnRoom": 
+				case INVOKE_ON_ROOM: 
 					if (messages.length == 3) {
 						MOSS.invokeOnRoom(this, messages[0], messages[1], messages[2]);
 						opStatus = true;
 					}
 					invoke("invokeOnRoom", opStatus ? "ok" : "error", request);
 					break;
-				case "invokeOnAll": 
+				case INVOKE_ON_ALL: 
 					if (messages.length >= 1) {
 						MOSS.invokeOnAll(this, messages[0], messages[1]);
 						opStatus = true;
 					}
 					invoke("invokeOnAll", opStatus ? "ok" : "error", request);
 					break;
-				case "setTimeOut": 
+				case SET_TIME_OUT: 
 					try {
 						int timeout = Integer.valueOf(message);
 						if(timeout >= 0 && timeout <= 600000) { // 10 minutes max
@@ -330,14 +352,14 @@ public class User extends Observable
 					}
 					invoke("setTimeOut", opStatus ? "ok" : "error", request);
 					break;
-				case "log":
+				case LOG:
 					MOSS.filelog.add(id(), message);
 					invoke("log", "ok", request);
 					break;
-				case "ping": 
+				case PING: 
 					invoke("pong", "ok", request);
 					break;
-				case "pong": 
+				case PONG: 
 				case "": 
 					break;
 				default: 
