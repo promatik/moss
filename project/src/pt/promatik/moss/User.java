@@ -389,10 +389,10 @@ public class User extends Observable
 	
 	public void disconnect()
 	{
-		dispatchNotification(new UserNotification(UserNotification.DISCONNECTED, this));
-		
 		if(!connected)
 			return;
+
+		dispatchNotification(new UserNotification(UserNotification.DISCONNECTED, this));
 		
 		if(!protocolConn)
 			Utils.log(this.id + ", " + socket + " has disconnected.");

@@ -18,7 +18,7 @@ import pt.promatik.moss.vo.UserVO;
 public abstract class Moss
 {
 	public static final String MSG_DELIMITER = "&!";
-	public static final String VERSION = "1.1.0";
+	public static final String VERSION = "1.1.1";
 
 	public int server_port = 30480;
 	public Server srv;
