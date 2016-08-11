@@ -4,10 +4,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.Vector;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import pt.promatik.moss.utils.FileLogger;
 import pt.promatik.moss.utils.HttpRequest;
@@ -18,7 +21,7 @@ import pt.promatik.moss.vo.UserVO;
 public abstract class Moss
 {
 	public static final String MSG_DELIMITER = "&!";
-	public static final String VERSION = "1.1.1";
+	public static final String VERSION = "1.1.2";
 
 	public int server_port = 30480;
 	public Server srv;
@@ -136,25 +139,50 @@ public abstract class Moss
 		return getUsers(room, 20, 0);
 	}
 	
-	public synchronized List<User> getUsers(String room, int limit, int page) {
+	public List<User> getUsers(String room, int limit, int page) {
+		return getUsers(room, limit, page, 0, null);
+	}
+	
+	public synchronized List<User> getUsers(String room, int limit, int page, int available, HashMap<String, Object> search) {
+		Utils.log("getUsers: " + room + ", " + limit + ", " + page + ", " + available);
 		
-		Utils.log("getUsers: " + room + ", " + limit + ", " + page);
+		Stream<User> streamUsers = srv.getRoom(room).users.values().stream();
 		
-		ArrayList<User> users = new ArrayList<User>(srv.getRoom(room).users.values());
+		// Apply filters
+		switch (available) {
+			case User.GET_USERS_FILTER_ONLINE:
+				streamUsers = streamUsers.filter(user -> user.isAvailable());
+				break;
+			case User.GET_USERS_FILTER_OFFLINE:
+				streamUsers = streamUsers.filter(user -> !user.isAvailable());
+				break;
+		}
+		
+		// Search user data
+		if(search != null) {
+			for(Entry<String, Object> entry : search.entrySet()) {
+				streamUsers = streamUsers.filter(user -> {
+					if(user.data().get(entry.getKey()) == null)
+						return false;
+					return user.data().get(entry.getKey()).toString().toLowerCase().indexOf(entry.getValue().toString().toLowerCase()) > -1;
+				});
+			}
+		}
+		
+		// Final list
+		List<User> users = streamUsers.collect(Collectors.toList());
+		
 		if(users.size() == 0)
 			return null;
-		
-		Utils.log("getUsers: " + users.size());
 		
 		int limit_min = page * limit;
 		int limit_max = (page + 1) * limit;
 		if(limit_max >= users.size()) limit_max = users.size();
 		if(limit_min >= users.size()) limit_min = users.size() - 1;
 		
-		List<User> result = null;
 		try {
-			result = users.subList(limit_min, limit_max);
-			Utils.log("getUsers: " + result.size());
+			List<User> result = users.subList(limit_min, limit_max);
+			Utils.log("getUsers result: " + result.size());
 			return result;
 		} catch (Exception e) {
 			Utils.log(e);

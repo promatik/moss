@@ -7,6 +7,7 @@ import java.net.UnknownHostException;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Vector;
 
 import pt.promatik.moss.utils.Utils;
@@ -19,6 +20,7 @@ public class Server extends Thread
 	private InetAddress hostAddress;
 	private Socket socket;
 	private volatile Boolean running = false;
+	private int maxErrorLogs = 100;
 	
 	private Vector<User> users = new Vector<User>();
 	private HashMap<String, Room> rooms = new HashMap<String, Room>();
@@ -73,7 +75,9 @@ public class Server extends Thread
 	}
 	
 	public synchronized void pingUsers() {
-		for (User user : users) {
+		Iterator<User> it = users.iterator();
+		while (it.hasNext()) {
+			User user = it.next();
 			user.invoke("ping");
 		}
 	}
@@ -98,10 +102,11 @@ public class Server extends Thread
 				socket.setSoTimeout(MOSS.socketTimeout);
 				
 				users.add(new User(MOSS, socket));
-				if(Utils.log_level >= Utils.LOG_FULL)
-					Utils.log("Client " + socket + " has connected.");
+				Utils.log("Client (" + users.size() + ") " + socket + " has connected.");
 			} catch(IOException e) {
-				Utils.log("Could not get a client.", e);
+				maxErrorLogs--;
+				if(maxErrorLogs > 0)
+					Utils.log("Could not get a client.", e);
 			}
 		}
 		

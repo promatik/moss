@@ -1,6 +1,10 @@
 package pt.promatik.moss;
 
+import java.util.ConcurrentModificationException;
 import java.util.HashMap;
+import java.util.Iterator;
+
+import pt.promatik.moss.utils.Utils;
 
 public class Room {
 	public String name;
@@ -13,8 +17,14 @@ public class Room {
 	
 	public synchronized void invoke(User from, String command, String message)
 	{
-		for (User user : users.values()) {
-			user.invoke(from, command, message);
+		try {
+			Iterator<User> it = users.values().iterator();
+			while (it.hasNext()) {
+				User user = it.next();
+				user.invoke(from, command, message);
+			}
+		} catch(ConcurrentModificationException e) {
+			Utils.log("ConcurrentModification", e);
 		}
 	}
 	

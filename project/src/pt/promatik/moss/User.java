@@ -176,6 +176,8 @@ public class User extends Observable
 				}
 			} catch (SocketTimeoutException e) {
 				Utils.log("Connection reset exception: " + e.toString());
+			} catch (SocketException e) {
+				Utils.log("Connection reset exception: " + e.toString(), e);
 			} catch (Exception e) {
 				Utils.log("Connection reset exception: " + e.toString(), e);
 			} finally {
@@ -203,6 +205,10 @@ public class User extends Observable
 	private final String ON = "on";
 	private final String OFF = "off";
 	
+	public static final int GET_USERS_FILTER_ALL = 0;
+	public static final int GET_USERS_FILTER_ONLINE = 1;
+	public static final int GET_USERS_FILTER_OFFLINE = 2;
+	
 	public void processMessage(String msg)
 	{
 		// Protocol: #MOSS#(command)#(message)#(request)#|
@@ -210,7 +216,7 @@ public class User extends Observable
 		// #MOSS#<!disconnect	!>#<!									!>#<!request!>#|
 		// #MOSS#<!updateStatus	!>#<!(status)							!>#<!request!>#|
 		// #MOSS#<!getUser		!>#<!(id)&!(room)						!>#<!request!>#|
-		// #MOSS#<!getUsers		!>#<!(room)&!(limit)?&!(page)?			!>#<!request!>#|
+		// #MOSS#<!getUsers		!>#<!(room)&!(limit)?&!(page)?&!(available)?&!(search)?!>#<!request!>#|
 		// #MOSS#<!getUsersCount!>#<!(room)								!>#<!request!>#|
 		// #MOSS#<!invoke		!>#<!(id)&!(room)&!(command)&!(message)	!>#<!request!>#|
 		// #MOSS#<!invokeOnRoom	!>#<!(room)&!(command)&!(message)		!>#<!request!>#|
@@ -282,15 +288,21 @@ public class User extends Observable
 					break;
 				case GET_USERS: 
 					List<User> users = null;
-					if (messages.length == 1) {
-						users = MOSS.getUsers(messages[0]);
-					}
-					else if (messages.length == 3) {
-						users = MOSS.getUsers(messages[0], Integer.parseInt(messages[1]), Integer.parseInt(messages[2]));
-					}
 					
-					boolean first = true;
+					String room = "";
+					int limit = 20, page = 0, available = 0;
+					HashMap<String, Object> search = null;
+					
+					if(messages.length > 0) room = messages[0];
+					if(messages.length > 1) limit = Integer.parseInt(messages[1]);
+					if(messages.length > 2) page = Integer.parseInt(messages[2]);
+					if(messages.length > 3) available = Integer.parseInt(messages[3]);
+					if(messages.length > 4) search = (HashMap<String, Object>) Utils.map(messages[4].split(","));
+					
+					users = MOSS.getUsers(room, limit, page, available, search);
+					
 					if(users != null) {
+						boolean first = true;
 						for (User user : users) {
 							result += (!first ? Moss.MSG_DELIMITER : "") + user.toString();
 							first = false;
