@@ -98,15 +98,21 @@ public class Server extends Thread
 		while(running)
 		{
 			try {
-				socket = serverSocket.accept();
-				socket.setSoTimeout(MOSS.socketTimeout);
-				
-				users.add(new User(MOSS, socket));
-				Utils.log("Client (" + users.size() + ") " + socket + " has connected.");
+				if(MOSS.MAX_CONNECTIONS == 0 || users.size() < MOSS.MAX_CONNECTIONS) {
+					socket = serverSocket.accept();
+					socket.setSoTimeout(MOSS.socketTimeout);
+					
+					users.add(new User(MOSS, socket));
+					Utils.log("Client (" + users.size() + ") " + socket + " has connected.");
+				} else {
+					Thread.sleep(1000);
+				}
 			} catch(IOException e) {
 				maxErrorLogs--;
 				if(maxErrorLogs > 0)
 					Utils.log("Could not get a client.", e);
+			} catch (InterruptedException e) {
+				
 			}
 		}
 		

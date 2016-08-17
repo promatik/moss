@@ -1,10 +1,13 @@
 package pt.promatik.moss;
 
+import java.io.FileInputStream;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Properties;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.Vector;
@@ -21,7 +24,7 @@ import pt.promatik.moss.vo.UserVO;
 public abstract class Moss
 {
 	public static final String MSG_DELIMITER = "&!";
-	public static final String VERSION = "1.1.2";
+	public static final String VERSION = "1.1.3";
 
 	public int server_port = 30480;
 	public Server srv;
@@ -30,6 +33,10 @@ public abstract class Moss
 	public HttpRequest http = new HttpRequest();
 	public int log = Utils.LOG_ERRORS;
 	public int socketTimeout = 0;
+
+	public int MAX_CONNECTIONS = 0;
+	public String CHARSET_IN = "UTF-8";
+	public String CHARSET_OUT = "UTF-8";
 	
 	private Timer appTimer = new Timer();
 	
@@ -80,8 +87,35 @@ public abstract class Moss
 		srv = new Server(this, port);
 		new Thread(srv).start();
 		
+		runTimeSettingsTimer();
+		
 		Utils.patternMessage = Pattern.compile("^#MOSS#<!(.+)!>#<!(.+)?!>#<!(.+)?!>#$");
 		Utils.patternPingPong = Pattern.compile("p[i|o]ng");
+	}
+	
+	protected void runTimeSettingsTimer()
+	{
+		Timer settingsTimer = new Timer();
+		settingsTimer.schedule(new TimerTask() {
+			@Override
+			public void run() {
+				Properties prop = new Properties();
+				InputStream input = null;
+
+				try {
+					input = new FileInputStream("moss_config");
+					prop.load(input);
+					
+					// Load values
+					MAX_CONNECTIONS = Integer.parseInt(prop.getProperty("max_connections"));
+					
+					input.close();
+				} catch (Exception e) {
+					Utils.log(e);
+					settingsTimer.cancel();
+				}
+			}
+		}, 0, 5000000);
 	}
 	
 	protected void startPingTimer(int interval)
@@ -162,7 +196,7 @@ public abstract class Moss
 		if(search != null) {
 			for(Entry<String, Object> entry : search.entrySet()) {
 				streamUsers = streamUsers.filter(user -> {
-					if(user.data().get(entry.getKey()) == null)
+					if(user == null || user.data().get(entry.getKey()) == null)
 						return false;
 					return user.data().get(entry.getKey()).toString().toLowerCase().indexOf(entry.getValue().toString().toLowerCase()) > -1;
 				});

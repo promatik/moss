@@ -3,6 +3,7 @@ package pt.promatik.moss;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
+import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -145,8 +146,8 @@ public class User extends Observable
 		public void run()
 		{
 			try {
-				in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-				out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+				in = new BufferedReader(new InputStreamReader(socket.getInputStream(), Charset.forName(MOSS.CHARSET_IN)));
+				out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), Charset.forName(MOSS.CHARSET_OUT)));
 			}
 			catch(IOException e) {
 				Utils.log(e);

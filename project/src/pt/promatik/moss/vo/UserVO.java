@@ -1,6 +1,6 @@
 package pt.promatik.moss.vo;
 
-import pt.promatik.moss.Moss;
+import pt.promatik.moss.User;
 
 public class UserVO {
 	public String id;
@@ -13,6 +13,6 @@ public class UserVO {
 	
 	public String toString(){
 		String[] user = {id, room, "", "off", "0", "{}"};
-		return String.join(Moss.MSG_DELIMITER, user);
+		return String.join(User.MSG_USER_DELIMITER, user);
 	}
 }
