@@ -6,7 +6,8 @@ import java.util.Iterator;
 
 import pt.promatik.moss.utils.Utils;
 
-public class Room {
+public class Room
+{
 	public String name;
 	public HashMap<String, User> users = new HashMap<String, User>();
 	
@@ -24,7 +25,7 @@ public class Room {
 				user.invoke(from, command, message);
 			}
 		} catch(ConcurrentModificationException e) {
-			Utils.log("ConcurrentModification", e);
+			Utils.log("Concurrent modification on room users", e);
 		}
 	}
 	

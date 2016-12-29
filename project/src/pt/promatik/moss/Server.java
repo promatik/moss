@@ -21,8 +21,9 @@ public class Server extends Thread
 	private Socket socket;
 	private volatile Boolean running = false;
 	private int maxErrorLogs = 100;
-	
+
 	private Vector<User> users = new Vector<User>();
+	private Vector<User> waiting = new Vector<User>();
 	private HashMap<String, Room> rooms = new HashMap<String, Room>();
 	
 	public Server(Moss instance, int port)
@@ -53,15 +54,23 @@ public class Server extends Thread
 		MOSS.serverStarted();
 	}
 	
-	public Collection<User> getUsers() {
+	public Collection<User> getUsers()
+	{
 		return users;
 	}
 	
-	public Collection<Room> getRooms() {
+	public Collection<User> getWaitingUsers()
+	{
+		return waiting;
+	}
+	
+	public Collection<Room> getRooms()
+	{
 		return rooms.values();
 	}
 	
-	public synchronized Room getRoom(String id) {
+	public synchronized Room getRoom(String id)
+	{
 		Room r = rooms.get(id);
 		if(r == null) {
 			r = new Room(id);
@@ -70,11 +79,20 @@ public class Server extends Thread
 		return r;
 	}
 
-	public synchronized void removeUser(User user) {
+	public synchronized void removeUser(User user)
+	{
 		users.remove(user);
+		waiting.remove(user);
+		
+		if(MOSS.CONNECTIONS_MAX > 0 && waiting.size() > 0 && users.size() < MOSS.CONNECTIONS_MAX) {
+			waiting.get(0).approveLogin();
+			users.add(waiting.get(0));
+			waiting.remove(0);
+		}
 	}
 	
-	public synchronized void pingUsers() {
+	public synchronized void pingUsers()
+	{
 		Iterator<User> it = users.iterator();
 		while (it.hasNext()) {
 			User user = it.next();
@@ -82,12 +100,23 @@ public class Server extends Thread
 		}
 	}
 	
-	public synchronized void checkDoubleLogin(String id) {
+	public synchronized void checkDoubleLogin(String id)
+	{
 		for (Room room : rooms.values()) {
 			User user = room.users.get(id);
 			if(user != null) {
 				user.doubleLogin();
 			}
+		}
+	}
+	
+	public void userLimitsUpdate()
+	{
+		while (waiting.size() > 0 && (MOSS.CONNECTIONS_MAX == 0 || MOSS.CONNECTIONS_MAX > users.size())) {
+			User waitingUser = waiting.get(0);
+			waiting.remove(0);
+			waitingUser.approveLogin();
+			users.add(waitingUser);
 		}
 	}
 	
@@ -98,12 +127,17 @@ public class Server extends Thread
 		while(running)
 		{
 			try {
-				if(MOSS.MAX_CONNECTIONS == 0 || users.size() < MOSS.MAX_CONNECTIONS) {
+				if(MOSS.CONNECTIONS_MAX == 0 || users.size() < (MOSS.CONNECTIONS_MAX + MOSS.CONNECTIONS_WAITING)) {
 					socket = serverSocket.accept();
 					socket.setSoTimeout(MOSS.socketTimeout);
 					
-					users.add(new User(MOSS, socket));
-					Utils.log("Client (" + users.size() + ") " + socket + " has connected.");
+					boolean toWait = (MOSS.CONNECTIONS_MAX > 0 && users.size() >= MOSS.CONNECTIONS_MAX);
+					User user = new User(MOSS, socket, toWait);
+					
+					if(toWait) waiting.add(user);
+					else users.add(user);
+					
+					Utils.log("Client #" + users.size() + " - " + socket + " has connected.");
 				} else {
 					Thread.sleep(1000);
 				}
@@ -119,7 +153,8 @@ public class Server extends Thread
 		MOSS.serverStopped();
 	}
 	
-	public void quit() {
+	public void quit()
+	{
 		running = false;
 	}
 }

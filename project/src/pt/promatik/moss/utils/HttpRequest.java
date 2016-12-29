@@ -10,7 +10,8 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
-public class HttpRequest {
+public class HttpRequest
+{
 	private String host = "";
 	private String encoding = "UTF-8";
 	private String contentType = "application/x-www-form-urlencoded";
@@ -20,18 +21,21 @@ public class HttpRequest {
 		
 	}
 
-	public void init(String host) {
+	public void init(String host)
+	{
 		init(host, encoding, contentType, method);
 	}
 	
-	public void init(String host, String encoding, String contentType, String method) {
+	public void init(String host, String encoding, String contentType, String method)
+	{
 		this.host = host;
 		this.encoding = encoding;
 		this.contentType = contentType;
 		this.method = method;
 	}
 	
-	public String request(Map<String, Object> params) throws Exception {
+	public String request(Map<String, Object> params) throws Exception
+	{
 		if(host.equals(""))
 			new Exception("HttpRequest is not initialized, run http.init()");
 		

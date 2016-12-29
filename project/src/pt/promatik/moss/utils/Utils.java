@@ -9,19 +9,27 @@ import java.util.regex.Pattern;
 
 import org.json.JSONObject;
 
-public class Utils{
-	public static int log_level = 3;
+public class Utils
+{
 	public final static int LOG_NONE = 0;
 	public final static int LOG_DEFAULT = 1;
 	public final static int LOG_ERRORS = 2;
 	public final static int LOG_FULL = 3;
+	public final static int LOG_VERBOSE = 4;
+	
+	public static int log_level = LOG_FULL;
 	
 	public static Random random = new Random(System.nanoTime());
 	public static Pattern patternMessage, patternPingPong;
-	
+
 	public static void log(String message)
 	{
 		log(message, "");
+	}
+	
+	public static void log(String message, String ref)
+	{
+		log(message, ref, false);
 	}
 	
 	public static void log(String message, Exception e)
@@ -31,13 +39,13 @@ public class Utils{
 	
 	public static void log(String message, String ref, Exception e)
 	{
-		log(message, ref);
+		log(message, ref, false);
 		log(e);
 	}
 	
-	public static void log(String message, String ref)
+	public static void log(String message, String ref, boolean forceLog)
 	{
-		if(log_level >= LOG_DEFAULT) {
+		if(log_level >= LOG_DEFAULT || forceLog) {
 			System.out.println( (ref.equals("") ? "MOSS" : ref) + " " + new SimpleDateFormat("HH:mm:ss").format(new Date()) + "> " + message);
 		}
 	}
@@ -47,6 +55,11 @@ public class Utils{
 		if(log_level >= LOG_ERRORS) {
 			e.printStackTrace();
 		}
+	}
+	
+	public static void forceLog(String message)
+	{
+		log(message, "", true);
 	}
 
 	public static String JSONStringify(HashMap<String, Object> args)
@@ -64,11 +77,13 @@ public class Utils{
 		return new JSONObject(json);
 	}
 	
-	public static HashMap<String, Object> map(String... args) {
+	public static HashMap<String, Object> map(String... args)
+	{
 		return map((Object[]) args);
 	}
 
-	public static HashMap<String, Object> map(Object... args) {
+	public static HashMap<String, Object> map(Object... args)
+	{
 		if(args.length % 2 == 1)
 			new Exception("Odd number of arguments");
 		
@@ -80,14 +95,16 @@ public class Utils{
 		return r;
 	}
 	
-	public static <T> T random(Collection<T> coll) {
+	public static <T> T random(Collection<T> coll)
+	{
 		if(coll.size() == 0) return null;
 		int num = (int) (Math.random() * coll.size());
 		for(T t: coll) if (--num < 0) return t;
 		throw new AssertionError();
 	}
 	
-	public static int random(int min, int max){
+	public static int random(int min, int max)
+	{
 		return min + (int)(Math.random() * (max - min + 1));
 	}
 }

@@ -14,12 +14,14 @@ public class FileLogger
 
     public FileLogger() { }
     
-    public void init(String path, String filename) {
+    public void init(String path, String filename)
+    {
     	this.path = path;
     	this.filename = filename;
     }
     
-    public void add(String file_suffix, String message) {
+    public void add(String file_suffix, String message)
+    {
 		if(path.equals("")) {
 			Utils.log(new Exception("FileLogger is not initialized, run filelog.init()"));
 		} else {

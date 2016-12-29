@@ -8,19 +8,32 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-public class MySQL {
+public class MySQL
+{
 	public boolean connected = false;
+	private int port = 3306;
 	private Connection conn;
 	
-	public MySQL(){
+	public MySQL()
+	{
 		
 	}
 	
-	public void connect(String host, String database, String user, String password){
-		connect(host, 3306, database, user, password);
+	public int port()
+	{
+		return port;
 	}
 	
-	public void connect(String host, int port, String database, String user, String password){
+	public void connect(String host, String database, String user, String password)
+	{
+		connect(host, port, database, user, password);
+	}
+	
+	public void connect(String host, int _port, String database, String user, String password)
+	{
+		if(_port > 0)
+			port = _port;
+		
 		try {
 			Class.forName("com.mysql.jdbc.Driver").newInstance();
 			conn = DriverManager.getConnection("jdbc:mysql://" + host + ":" + String.valueOf(port) + "/" + database, user, password);
@@ -30,7 +43,8 @@ public class MySQL {
 		}
 	}
 	
-	public void disconnect(){
+	public void disconnect()
+	{
 		try {
 			connected = false;
 			conn.close();
@@ -39,11 +53,13 @@ public class MySQL {
 		}
 	}
 
-	public Connection getConnection(){
+	public Connection getConnection()
+	{
 		return conn;
 	}
 
-	public Statement getStatement(){
+	public Statement getStatement()
+	{
 		Statement stmt = null;
 		try {
 			stmt = conn.createStatement();
@@ -53,11 +69,16 @@ public class MySQL {
 		return stmt;
 	}
 	
-	public HashMap<String, String> queryFirst(String query, String... fields){
+	public HashMap<String, String> queryFirst(String query, String... fields)
+	{
 		return query(query, fields).get(0);
 	}
 	
-	public ArrayList<HashMap<String, String>> query(String query, String... fields){
+	public ArrayList<HashMap<String, String>> query(String query, String... fields)
+	{
+		if(Utils.log_level >= Utils.LOG_VERBOSE)
+			Utils.log(query);
+		
 		Statement stmt = null;
 		ArrayList<HashMap<String, String>> result = new ArrayList<>();
 		try {
@@ -78,7 +99,8 @@ public class MySQL {
 		return result;
 	}
 	
-	public void query(String query){
+	public void query(String query)
+	{
 		Statement stmt = null;
 		try {
 			stmt = conn.createStatement();

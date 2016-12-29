@@ -1,6 +1,7 @@
 package pt.promatik.moss;
 
-public class UserNotification {
+public class UserNotification
+{
 	public static final String MESSAGE = "MESSAGE";
 	public static final String DISCONNECTED = "DISCONNECTED";
 
@@ -13,11 +14,13 @@ public class UserNotification {
 	public Boolean isMessage() { return type.equals(MESSAGE); }
 	public Boolean isDisconnected() { return type.equals(DISCONNECTED); }
 
-	public UserNotification(String type, User user) {
+	public UserNotification(String type, User user)
+	{
 		this(type, user, "", "", "");
 	}
 	
-	public UserNotification(String type, User user, String command, String message, String request) {
+	public UserNotification(String type, User user, String command, String message, String request)
+	{
 		this.type = type;
 		this.user = user;
 		this.command = command;

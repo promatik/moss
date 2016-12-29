@@ -21,8 +21,36 @@ import java.io.OutputStreamWriter;
 
 public class User extends Observable
 {
-	public Moss MOSS;
+	public static final String MSG_DELIMITER = "&!";
 	public static final String MSG_USER_DELIMITER = "&;";
+
+	public static final int GET_USERS_FILTER_ALL = 0;
+	public static final int GET_USERS_FILTER_ONLINE = 1;
+	public static final int GET_USERS_FILTER_OFFLINE = 2;
+
+	private static final String CONNECT = "connect";
+	private static final String DISCONNECT = "disconnect";
+	private static final String UPDATE_STATUS = "updateStatus";
+	private static final String UPDATE_AVAILABILITY = "updateAvailability";
+	private static final String GET_USER = "getUser";
+	private static final String GET_USERS = "getUsers";
+	private static final String GET_USERS_COUNT = "getUsersCount";
+	private static final String SET_DATA = "setData";
+	private static final String RANDOM_PLAYER = "randomPlayer";
+	private static final String INVOKE = "invoke";
+	private static final String INVOKE_ON_ROOM = "invokeOnRoom";
+	private static final String INVOKE_ON_ALL = "invokeOnAll";
+	private static final String SET_TIME_OUT = "setTimeOut";
+	private static final String LOG = "log";
+	private static final String PING = "ping";
+	private static final String PONG = "pong";
+
+	public static final String ON = "on";
+	public static final String OFF = "off";
+	public static final String AVAILABLE = "1";
+	public static final String UNAVAILABLE = "0";
+
+	private Moss MOSS;
 	
 	private Socket socket = null;
 	private BufferedReader in;
@@ -33,9 +61,9 @@ public class User extends Observable
 	private String room = "";
 	private String status = "";
 	private boolean available = true;
+	private boolean waiting = false;
 	private HashMap<String, Object> data = new HashMap<String, Object>();
 	
-	private boolean protocolConn = false;
 	private boolean validConn = false;
 	private Matcher match;
 
@@ -43,15 +71,22 @@ public class User extends Observable
 	public String id(){ return id; }
 	public String room(){ return room; }
 	public String status(){ return status; }
+	public boolean isWaiting(){ return waiting; }
 	public boolean isAvailable(){ return available; }
 	public boolean isConnected(){ return connected; }
 	public HashMap<String, Object> data(){ return data; }
-	
-	public User(Moss instance, Socket newSocket)
+
+	public User(Moss instance, Socket newSocket, boolean waiting_status)
 	{
 		MOSS = instance;
 		socket = newSocket;
+		waiting = waiting_status;
 		start();
+	}
+	
+	public User(Moss instance, Socket newSocket)
+	{
+		this(instance, newSocket, false);
 	}
 	
 	public User()
@@ -84,12 +119,14 @@ public class User extends Observable
 		}
 	}
 	
-	public String toString(){
-		String[] user = {id, room, status, (connected ? ON : OFF), (available ? "1" : "0"), Utils.JSONStringify(data)};
+	public String toString()
+	{
+		String[] user = {id, room, status, (connected ? ON : OFF), (available ? AVAILABLE : UNAVAILABLE), Utils.JSONStringify(data)};
 		return String.join(MSG_USER_DELIMITER, user);
 	}
 	
-	public UserVO getVO(){
+	public UserVO getVO()
+	{
 		return new UserVO(id, room);
 	}
 	
@@ -170,7 +207,6 @@ public class User extends Observable
 					
 					// Flash privacy policy
 					if(!validConn && result.equals("<policy-file-request/>")) {
-						protocolConn = true;
 						out.write("<?xml version=\"1.0\"?><cross-domain-policy><allow-access-from domain=\"*\" to-ports=\"" + MOSS.server_port + "\" /></cross-domain-policy>\0");
 						out.flush();
 					}
@@ -186,29 +222,6 @@ public class User extends Observable
 			}
 		}
 	}
-	
-	private final String CONNECT = "connect";
-	private final String DISCONNECT = "disconnect";
-	private final String UPDATE_STATUS = "updateStatus";
-	private final String UPDATE_AVAILABILITY = "updateAvailability";
-	private final String GET_USER = "getUser";
-	private final String GET_USERS = "getUsers";
-	private final String GET_USERS_COUNT = "getUsersCount";
-	private final String SET_DATA = "setData";
-	private final String RANDOM_PLAYER = "randomPlayer";
-	private final String INVOKE = "invoke";
-	private final String INVOKE_ON_ROOM = "invokeOnRoom";
-	private final String INVOKE_ON_ALL = "invokeOnAll";
-	private final String SET_TIME_OUT = "setTimeOut";
-	private final String LOG = "log";
-	private final String PING = "ping";
-	private final String PONG = "pong";
-	private final String ON = "on";
-	private final String OFF = "off";
-	
-	public static final int GET_USERS_FILTER_ALL = 0;
-	public static final int GET_USERS_FILTER_ONLINE = 1;
-	public static final int GET_USERS_FILTER_OFFLINE = 2;
 	
 	public void processMessage(String msg)
 	{
@@ -236,14 +249,14 @@ public class User extends Observable
 			String request = match.group(3) + "";
 			String[] messages = null;
 			if(!message.equals(""))
-				messages = message.split(Moss.MSG_DELIMITER);
+				messages = message.split(MSG_DELIMITER);
 			
-			if(!command.equals("connect") && id == null)
+			if(!command.equals(CONNECT) && id == null)
 				return;
 			
 			String result = "";
 			boolean opStatus = false;
-			switch(command){
+			switch(command) {
 				case CONNECT: 
 					if (messages.length >= 2) {
 						this.id = messages[0];
@@ -251,11 +264,12 @@ public class User extends Observable
 						if (messages.length == 3)
 							status = messages[2];
 						
-						MOSS.srv.checkDoubleLogin(this.id);
-						MOSS.srv.getRoom(this.room).add(this.id, this);
+						MOSS.server.checkDoubleLogin(this.id);
+						MOSS.server.getRoom(this.room).add(this.id, this);
 						if(!this.id.equals("0"))
 							MOSS.userConnected(this);
-						invoke("connected", "", request);
+						
+						approveLogin(!waiting, request);
 					}
 					break;
 				case DISCONNECT: 
@@ -271,7 +285,7 @@ public class User extends Observable
 					break;
 				case UPDATE_AVAILABILITY: 
 					if (messages.length == 1) {
-						available = messages[0].equals("1");
+						available = messages[0].equals(AVAILABLE);
 						invoke("availabilityUpdated", messages[0], request);
 						MOSS.userUpdatedAvailability(this, this.available);
 					}
@@ -305,7 +319,7 @@ public class User extends Observable
 					if(users != null) {
 						boolean first = true;
 						for (User user : users) {
-							result += (!first ? Moss.MSG_DELIMITER : "") + user.toString();
+							result += (!first ? MSG_DELIMITER : "") + user.toString();
 							first = false;
 						}
 					}
@@ -383,9 +397,20 @@ public class User extends Observable
 			}
 			
 			match = Utils.patternPingPong.matcher(command + message);
-			if (!match.find() || MOSS.log >= Utils.LOG_FULL)
+			if (!match.find() && Utils.log_level >= Utils.LOG_FULL)
 				Utils.log(this.id + ", " + command + ", " + message);
 		}
+	}
+	
+	private void approveLogin(boolean approved, String request)
+	{
+		if(id != null)
+			invoke(approved ? "connected" : "waiting", request);
+	}
+	
+	protected void approveLogin()
+	{
+		approveLogin(true, "");
 	}
 
 	private void dispatchNotification(UserNotification notification)
@@ -407,13 +432,12 @@ public class User extends Observable
 
 		dispatchNotification(new UserNotification(UserNotification.DISCONNECTED, this));
 		
-		if(!protocolConn)
-			Utils.log(this.id + ", " + socket + " has disconnected.");
+		Utils.log(this.id + ", " + socket + " has disconnected.");
 		
 		try
 		{
-			MOSS.srv.getRoom(this.room).remove(this);
-			MOSS.srv.removeUser(this);
+			MOSS.server.removeUser(this);
+			MOSS.server.getRoom(this.room).remove(this.id);
 			if(this.id != null)
 				MOSS.userDisconnected(this);
 			
