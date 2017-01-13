@@ -39,7 +39,7 @@ public class MySQL
 			conn = DriverManager.getConnection("jdbc:mysql://" + host + ":" + String.valueOf(port) + "/" + database, user, password);
 			connected = true;
 		} catch (Exception e) {
-			Utils.log("Connect exception " + e.toString() + " - " + e.getMessage(), "MySQL", e);
+			Utils.log("Connect exception " + e.toString() + " - " + e.getMessage(), "SQL ", e);
 		}
 	}
 	

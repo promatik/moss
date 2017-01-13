@@ -21,21 +21,23 @@ import pt.promatik.moss.vo.UserVO;
 
 public abstract class Moss
 {
-	public static final String VERSION = "1.2.0";
+	public static final String VERSION = "2.0.0";
 
 	public int server_port = 30480;
+	public String server_ip = null;
 	public Server server;
 	public Console console;
 	public MySQL mysql = new MySQL();
 	public FileLogger filelog = new FileLogger();
 	public HttpRequest http = new HttpRequest();
 	public Settings settings;
+	
 	public int socketTimeout = 0;
-
-	public int CONNECTIONS_MAX = 0;
-	public int CONNECTIONS_WAITING = 0;
-	public String CHARSET_IN = "UTF-8";
-	public String CHARSET_OUT = "UTF-8";
+	public boolean autoLogoutOnDoubleLogin = true;
+	public int connections_max = 0;
+	public int connections_waiting = 0;
+	public String charset_in = "UTF-8";
+	public String charset_out = "UTF-8";
 	
 	private Timer appTimer = new Timer();
 	
@@ -57,18 +59,32 @@ public abstract class Moss
 	protected void start(int port, String[] args)
 	{
 		int log = 0;
-		String configFile = null;
 		
 		try {
 			if(args != null) {
 				HashMap<String, Object> map = Utils.map(args);
 				if(map.get("log") != null)
 					log = Integer.parseInt((String) map.get("log"));
+			}
+		} catch (Exception e) {
+			
+		}
+		
+		start(port, log, args);
+	}
+	
+	protected void start(int port, int log, String[] args)
+	{
+		String configFile = null;
+		
+		try {
+			if(args != null) {
+				HashMap<String, Object> map = Utils.map(args);
 				if(map.get("config") != null)
 					configFile = (String) map.get("config");
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
+			
 		}
 		
 		start(port, log, configFile);
@@ -76,7 +92,8 @@ public abstract class Moss
 	
 	protected void start(int port, int log, String configFile)
 	{
-		System.out.println("MOSS v" + VERSION + " - Multiplayer Online Socket Server\nCopyright @promatik");
+		System.out.println("MOSS v" + VERSION + " - Multiplayer Online Socket Server");
+		System.out.println("https://github.com/promatik/moss");
 
 		// Load Settings
 		settings = new Settings(this, configFile);
@@ -89,20 +106,20 @@ public abstract class Moss
 		Utils.log("Log level " + String.valueOf(Utils.log_level));
 		
 		// Start default modules 
-		if(settings.mysql_host != null) {
+		if(settings.mysql_host != null && !settings.mysql_host.equals("")) {
 			mysql.connect(settings.mysql_host, settings.mysql_port, settings.mysql_database, settings.mysql_user, settings.mysql_pass);
 			Utils.log("MySQL running on '" + settings.mysql_host + ":" + String.valueOf(mysql.port()) + "' with '" + settings.mysql_database + "' database");
 		}
-		if(settings.http_host != null) {
+		if(settings.http_host != null && !settings.http_host.equals("")) {
 			http.init(settings.http_host);
 			Utils.log("HTTP service set to '" + settings.http_host + "'");
 		}
-		if(settings.filelog_filename != null) {
+		if(settings.filelog_filename != null && !settings.filelog_filename.equals("")) {
 			filelog.init(settings.filelog_path, settings.filelog_filename);
 			Utils.log("Log to file is enable on '" + settings.filelog_path + settings.filelog_filename + "'");
 		}
 		
-		server = new Server(this, server_port);
+		server = new Server(this, settings.server_ip, server_port);
 		new Thread(server).start();
 		
 		console = new Console(this);
@@ -158,6 +175,7 @@ public abstract class Moss
 	abstract public void userDisconnected(User user);
 	abstract public void userUpdatedStatus(User user, String status);
 	abstract public void userUpdatedAvailability(User user, boolean availability);
+	abstract public void userUpdatedRoom(User user, String room);
 	abstract public void userMessage(User user, String command, String message, String request);
 	abstract public void commandInput(String command, String value);
 	
@@ -176,8 +194,6 @@ public abstract class Moss
 	
 	public synchronized List<User> getUsers(String room, int limit, int page, int available, HashMap<String, Object> search)
 	{
-		Utils.log("getUsers: " + room + ", " + limit + ", " + page + ", " + available);
-		
 		Stream<User> streamUsers = server.getRoom(room).users.values().stream();
 		
 		// Apply filters
@@ -214,7 +230,6 @@ public abstract class Moss
 		
 		try {
 			List<User> result = users.subList(limit_min, limit_max);
-			Utils.log("getUsers result: " + result.size());
 			return result;
 		} catch (Exception e) {
 			Utils.log(e);

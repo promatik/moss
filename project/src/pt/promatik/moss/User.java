@@ -4,6 +4,7 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.nio.charset.Charset;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -13,11 +14,9 @@ import java.util.Observable;
 import pt.promatik.moss.utils.Utils;
 import pt.promatik.moss.vo.UserVO;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
+import java.io.InputStream;
+import java.io.OutputStream;
 
 public class User extends Observable
 {
@@ -28,22 +27,32 @@ public class User extends Observable
 	public static final int GET_USERS_FILTER_ONLINE = 1;
 	public static final int GET_USERS_FILTER_OFFLINE = 2;
 
-	private static final String CONNECT = "connect";
-	private static final String DISCONNECT = "disconnect";
-	private static final String UPDATE_STATUS = "updateStatus";
-	private static final String UPDATE_AVAILABILITY = "updateAvailability";
-	private static final String GET_USER = "getUser";
-	private static final String GET_USERS = "getUsers";
-	private static final String GET_USERS_COUNT = "getUsersCount";
-	private static final String SET_DATA = "setData";
-	private static final String RANDOM_PLAYER = "randomPlayer";
-	private static final String INVOKE = "invoke";
-	private static final String INVOKE_ON_ROOM = "invokeOnRoom";
-	private static final String INVOKE_ON_ALL = "invokeOnAll";
-	private static final String SET_TIME_OUT = "setTimeOut";
-	private static final String LOG = "log";
-	private static final String PING = "ping";
-	private static final String PONG = "pong";
+	// Commands
+	private static final String CONNECT = "_connect";
+	private static final String DISCONNECT = "_disconnect";
+	private static final String UPDATE_STATUS = "_updateStatus";
+	private static final String UPDATE_AVAILABILITY = "_updateAvailability";
+	private static final String GET_USER = "_getUser";
+	private static final String GET_USERS = "_getUsers";
+	private static final String GET_USERS_COUNT = "_getUsersCount";
+	private static final String SET_DATA = "_setData";
+	private static final String GET_ROOMS = "_getRooms";
+	private static final String UPDATE_ROOM = "_updateRoom";
+	private static final String RANDOM_PLAYER = "_randomPlayer";
+	private static final String INVOKE = "_invoke";
+	private static final String INVOKE_ON_ROOM = "_invokeOnRoom";
+	private static final String INVOKE_ON_ALL = "_invokeOnAll";
+	private static final String SET_TIME_OUT = "_setTimeOut";
+	private static final String LOG = "_log";
+	public static final String PING = "_ping";
+	public static final String PONG = "_pong";
+	
+	// Response messages
+	private static final String OK = "ok";
+	private static final String ERROR = "error";
+	private static final String WAITING = "waiting";
+	private static final String DOUBLE_LOGIN = "doublelogin";
+	private static final String ALREADY_LOGIN = "alreadyLogin";
 
 	public static final String ON = "on";
 	public static final String OFF = "off";
@@ -53,8 +62,8 @@ public class User extends Observable
 	private Moss MOSS;
 	
 	private Socket socket = null;
-	private BufferedReader in;
-	private BufferedWriter out;
+	private InputStream in;
+	private OutputStream out;
 
 	private boolean connected = false;
 	private String id = null;
@@ -157,11 +166,15 @@ public class User extends Observable
 	
 	public boolean invoke(User from, String command, String message, String request)
 	{
+		return sendMessage("#MOSS#<!" + command + "!>#<!" + (from != null ? from.toString() : "") + "!>#<!" + message + "!>#<!" + request + "!>#|");
+	}
+	
+	private boolean sendMessage(String message)
+	{
 		boolean sent = false;
 		try {
 			if(connected) {
-				out.write("#MOSS#<!" + command + "!>#<!" + (from != null ? from.toString() : "") + "!>#<!" + message + "!>#<!" + request + "!>#|");
-				out.flush();
+				out.write(message.getBytes(Charset.forName(MOSS.charset_out)));
 				sent = true;
 			}
 		} catch (IOException e) {
@@ -183,8 +196,8 @@ public class User extends Observable
 		public void run()
 		{
 			try {
-				in = new BufferedReader(new InputStreamReader(socket.getInputStream(), Charset.forName(MOSS.CHARSET_IN)));
-				out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), Charset.forName(MOSS.CHARSET_OUT)));
+				in = socket.getInputStream();
+				out = socket.getOutputStream();
 			}
 			catch(IOException e) {
 				Utils.log(e);
@@ -194,27 +207,29 @@ public class User extends Observable
 			try {
 				String result = "";
 				
-				char[] buff = new char[1];
-				int k = -1;
-				while( connected && (k = in.read(buff, 0, 1)) > -1 ) {
-					result += new String(buff, 0, k);
+				int k = in.read();
+				while( connected ) {
+					if((k = in.read()) < 0)
+						break;
+					
+					result += (char) k;
 					
 					if(result.contains("|")) {
 						validConn = true;
-						processMessage(result);
+						if(result.contains("MOSS"))
+							processMessage(result);
 						result = "";
 					}
 					
 					// Flash privacy policy
 					if(!validConn && result.equals("<policy-file-request/>")) {
-						out.write("<?xml version=\"1.0\"?><cross-domain-policy><allow-access-from domain=\"*\" to-ports=\"" + MOSS.server_port + "\" /></cross-domain-policy>\0");
-						out.flush();
+						sendMessage("<?xml version=\"1.0\"?><cross-domain-policy><allow-access-from domain=\"*\" to-ports=\"" + MOSS.server_port + "\" /></cross-domain-policy>\0");
 					}
 				}
 			} catch (SocketTimeoutException e) {
 				Utils.log("Connection reset exception: " + e.toString());
 			} catch (SocketException e) {
-				Utils.log("Connection reset exception: " + e.toString(), e);
+				Utils.log("Connection reset exception: " + e.toString());
 			} catch (Exception e) {
 				Utils.log("Connection reset exception: " + e.toString(), e);
 			} finally {
@@ -225,20 +240,23 @@ public class User extends Observable
 	
 	public void processMessage(String msg)
 	{
-		// Protocol: #MOSS#(command)#(message)#(request)#|
-		// #MOSS#<!connect		!>#<!(id)&!(room)&!(status)?			!>#<!request!>#|
-		// #MOSS#<!disconnect	!>#<!									!>#<!request!>#|
-		// #MOSS#<!updateStatus	!>#<!(status)							!>#<!request!>#|
-		// #MOSS#<!getUser		!>#<!(id)&!(room)						!>#<!request!>#|
-		// #MOSS#<!getUsers		!>#<!(room)&!(limit)?&!(page)?&!(available)?&!(search)?!>#<!request!>#|
-		// #MOSS#<!getUsersCount!>#<!(room)								!>#<!request!>#|
-		// #MOSS#<!invoke		!>#<!(id)&!(room)&!(command)&!(message)	!>#<!request!>#|
-		// #MOSS#<!invokeOnRoom	!>#<!(room)&!(command)&!(message)		!>#<!request!>#|
-		// #MOSS#<!invokeOnAll	!>#<!(command)&!(message)				!>#<!request!>#|
-		// #MOSS#<!setTimeOut	!>#<!(milliseconds)						!>#<!request!>#|
-		// #MOSS#<!randomPlayer	!>#<!(room)								!>#<!request!>#|
-		// #MOSS#<!setData		!>#<!(attribute)&!(data)				!>#<!request!>#|
-		// #MOSS#<!log			!>#<!(data)								!>#<!request!>#|
+		// Protocol: #MOSS#<!(command)!>#<!(messages)!>#<!(request)!>#|
+		// #MOSS#<!_connect				!>#<!(id)&!(room)&!(status)?							!>#<!(request)!>#|
+		// #MOSS#<!_disconnect			!>#<!													!>#<!(request)!>#|
+		// #MOSS#<!_updateStatus		!>#<!(status)											!>#<!(request)!>#|
+		// #MOSS#<!_updateAvailability	!>#<!(available)										!>#<!(request)!>#|
+		// #MOSS#<!_getUser				!>#<!(id)&!(room)										!>#<!(request)!>#|
+		// #MOSS#<!_getRooms			!>#<!													!>#<!(request)!>#|
+		// #MOSS#<!_updateRoom			!>#<!(room)												!>#<!(request)!>#|
+		// #MOSS#<!_getUsers			!>#<!(room)&!(limit)?&!(page)?&!(available)?&!(search)?	!>#<!(request)!>#|
+		// #MOSS#<!_getUsersCount		!>#<!(room)												!>#<!(request)!>#|
+		// #MOSS#<!_invoke				!>#<!(id)&!(room)&!(command)&!(message)					!>#<!(request)!>#|
+		// #MOSS#<!_invokeOnRoom		!>#<!(room)&!(command)&!(message)						!>#<!(request)!>#|
+		// #MOSS#<!_invokeOnAll			!>#<!(command)&!(message)								!>#<!(request)!>#|
+		// #MOSS#<!_setTimeOut			!>#<!(milliseconds)										!>#<!(request)!>#|
+		// #MOSS#<!_randomPlayer		!>#<!(room)												!>#<!(request)!>#|
+		// #MOSS#<!_setData				!>#<!(attribute)&!(data)								!>#<!(request)!>#|
+		// #MOSS#<!_log					!>#<!(data)												!>#<!(request)!>#|
 		
 		msg = msg.replaceAll("\\|", "");
 		match = Utils.patternMessage.matcher(msg);
@@ -256,144 +274,176 @@ public class User extends Observable
 			
 			String result = "";
 			boolean opStatus = false;
-			switch(command) {
-				case CONNECT: 
-					if (messages.length >= 2) {
-						this.id = messages[0];
-						this.room = messages[1];
-						if (messages.length == 3)
-							status = messages[2];
-						
-						MOSS.server.checkDoubleLogin(this.id);
-						MOSS.server.getRoom(this.room).add(this.id, this);
-						if(!this.id.equals("0"))
-							MOSS.userConnected(this);
-						
-						approveLogin(!waiting, request);
-					}
-					break;
-				case DISCONNECT: 
-					invoke("disconnected", "", request);
-					disconnect();
-					break;
-				case UPDATE_STATUS: 
-					if (messages.length == 1) {
-						status = messages[0];
-						invoke("statusUpdated", messages[0], request);
-						MOSS.userUpdatedStatus(this, status);
-					}
-					break;
-				case UPDATE_AVAILABILITY: 
-					if (messages.length == 1) {
-						available = messages[0].equals(AVAILABLE);
-						invoke("availabilityUpdated", messages[0], request);
-						MOSS.userUpdatedAvailability(this, this.available);
-					}
-					break;
-				case GET_USER: 
-					if (messages.length == 2) {
-						UserVO uvo = new UserVO(messages[0], messages[1]);
-						User user = MOSS.getUserByID(uvo);
-						if(user != null)
-							result = user.toString();
-						else
-							result = uvo.toString();
-					}
-					invoke("user", result, request);
-					break;
-				case GET_USERS: 
-					List<User> users = null;
-					
-					String room = "";
-					int limit = 20, page = 0, available = 0;
-					HashMap<String, Object> search = null;
-					
-					if(messages.length > 0) room = messages[0];
-					if(messages.length > 1) limit = Integer.parseInt(messages[1]);
-					if(messages.length > 2) page = Integer.parseInt(messages[2]);
-					if(messages.length > 3) available = Integer.parseInt(messages[3]);
-					if(messages.length > 4) search = (HashMap<String, Object>) Utils.map(messages[4].split(","));
-					
-					users = MOSS.getUsers(room, limit, page, available, search);
-					
-					if(users != null) {
-						boolean first = true;
-						for (User user : users) {
-							result += (!first ? MSG_DELIMITER : "") + user.toString();
-							first = false;
+			boolean first = true;
+			
+			// Reserved commands start with underscore
+			if(command.charAt(0) == '_')
+			{
+				switch(command) {
+					case CONNECT: 
+						if (messages.length >= 2) {
+							this.id = messages[0];
+							this.room = messages[1];
+							if (messages.length == 3)
+								status = messages[2];
+							
+							boolean found = MOSS.server.checkDoubleLogin(this.id) != null;
+							if(MOSS.autoLogoutOnDoubleLogin || !found)
+							{
+								MOSS.server.getRoom(this.room).add(this.id, this);
+								if(!this.id.equals("0"))
+									MOSS.userConnected(this);
+							
+								approveLogin(!waiting, request);
+							} else {
+								invoke(CONNECT, ALREADY_LOGIN, request);
+							}
 						}
-					}
-					invoke("users", result, request);
-					break;
-				case GET_USERS_COUNT: 
-					if (messages.length == 1) {
-						int total = MOSS.getUsersCount(messages[0]);
-						invoke("usersCount", String.valueOf(total), request);
-					}
-					break;
-				case SET_DATA: 
-					if (messages.length == 2) {
-						data.put(messages[0], messages[1]);
-					} else if (messages.length == 1) {
-						data.remove(messages[0]);
-					}
-					
-					invoke("setData", "ok", request);
-					break;
-				case RANDOM_PLAYER: 
-					if (messages.length == 1) {
-						User player = MOSS.pickRandomPlayer(id, messages[0]);
-						invoke("randomPlayer", (player != null ? player.toString() : "null"), request);
-					}
-					break;
-				case INVOKE:
-					String optionalMessage = (messages.length == 4 ? messages[3] : "");
-					if (messages.length >= 3) 
-						opStatus = MOSS.invoke(this, messages[0], messages[1], messages[2], optionalMessage);
-					
-					invoke("invoke", opStatus ? "ok" : "error", request);
-					break;
-				case INVOKE_ON_ROOM: 
-					if (messages.length == 3) {
-						MOSS.invokeOnRoom(this, messages[0], messages[1], messages[2]);
-						opStatus = true;
-					}
-					invoke("invokeOnRoom", opStatus ? "ok" : "error", request);
-					break;
-				case INVOKE_ON_ALL: 
-					if (messages.length >= 1) {
-						MOSS.invokeOnAll(this, messages[0], messages[1]);
-						opStatus = true;
-					}
-					invoke("invokeOnAll", opStatus ? "ok" : "error", request);
-					break;
-				case SET_TIME_OUT: 
-					try {
-						int timeout = Integer.valueOf(message);
-						if(timeout >= 0 && timeout <= 600000) { // 10 minutes max
-							socket.setSoTimeout(timeout);
+						break;
+					case DISCONNECT: 
+						invoke(DISCONNECT, OK, request);
+						disconnect();
+						break;
+					case UPDATE_STATUS: 
+						if (messages.length == 1) {
+							status = messages[0];
+							invoke(UPDATE_STATUS, messages[0], request);
+							MOSS.userUpdatedStatus(this, status);
+						}
+						break;
+					case UPDATE_AVAILABILITY: 
+						if (messages.length == 1) {
+							available = messages[0].equals(AVAILABLE);
+							invoke(UPDATE_AVAILABILITY, messages[0], request);
+							MOSS.userUpdatedAvailability(this, this.available);
+						}
+						break;
+					case GET_ROOMS: 
+						Collection<Room> rooms = MOSS.server.getRooms();
+						if(rooms != null) {
+							for (Room room : rooms) {
+								result += (!first ? MSG_DELIMITER : "") + room.name;
+								first = false;
+							}
+						}
+						invoke(GET_ROOMS, result, request);
+						break;
+					case UPDATE_ROOM:
+						if (messages.length == 1 && messages[0] != null) {
+							MOSS.server.getRoom(this.room).remove(this.id);
+							MOSS.server.getRoom(messages[0]).add(this.id, this);
+							MOSS.userUpdatedRoom(this, messages[0]);
+						}
+						invoke(UPDATE_ROOM, OK, request);
+						break;
+					case GET_USER: 
+						if (messages.length == 2) {
+							UserVO uvo = new UserVO(messages[0], messages[1]);
+							User user = MOSS.getUserByID(uvo);
+							if(user != null)
+								result = user.toString();
+							else
+								result = uvo.toString();
+						}
+						invoke(GET_USER, result, request);
+						break;
+					case GET_USERS: 
+						List<User> users = null;
+						
+						String room = "";
+						int limit = 20, page = 0, available = 0;
+						HashMap<String, Object> search = null;
+						
+						if(messages.length > 0) room = messages[0];
+						if(messages.length > 1) limit = Integer.parseInt(messages[1]);
+						if(messages.length > 2) page = Integer.parseInt(messages[2]);
+						if(messages.length > 3) available = Integer.parseInt(messages[3]);
+						if(messages.length > 4) search = (HashMap<String, Object>) Utils.map(messages[4].split(","));
+						
+						users = MOSS.getUsers(room, limit, page, available, search);
+						
+						if(users != null) {
+							for (User user : users) {
+								result += (!first ? MSG_DELIMITER : "") + user.toString();
+								first = false;
+							}
+						}
+						invoke(GET_USERS, result, request);
+						break;
+					case GET_USERS_COUNT: 
+						if (messages.length == 1) {
+							int total = MOSS.getUsersCount(messages[0]);
+							invoke(GET_USERS_COUNT, String.valueOf(total), request);
+						}
+						break;
+					case SET_DATA: 
+						if (messages.length == 2) {
+							data.put(messages[0], messages[1]);
+						} else if (messages.length == 1) {
+							data.remove(messages[0]);
+						}
+						
+						invoke(SET_DATA, OK, request);
+						break;
+					case RANDOM_PLAYER: 
+						if (messages.length == 1) {
+							User player = MOSS.pickRandomPlayer(id, messages[0]);
+							invoke(RANDOM_PLAYER, (player != null ? player.toString() : "null"), request);
+						}
+						break;
+					case INVOKE:
+						String optionalMessage = (messages.length == 4 ? messages[3] : "");
+						if (messages.length >= 3) 
+							opStatus = MOSS.invoke(this, messages[0], messages[1], messages[2], optionalMessage);
+						
+						invoke(INVOKE, opStatus ? OK : ERROR, request);
+						break;
+					case INVOKE_ON_ROOM: 
+						if (messages.length == 3) {
+							MOSS.invokeOnRoom(this, messages[0], messages[1], messages[2]);
 							opStatus = true;
 						}
-					} catch (SocketException e) {
-						e.printStackTrace();
-					}
-					invoke("setTimeOut", opStatus ? "ok" : "error", request);
-					break;
-				case LOG:
-					MOSS.filelog.add(id(), message);
-					invoke("log", "ok", request);
-					break;
-				case PING: 
-					invoke("pong", "ok", request);
-					break;
-				case PONG: 
-				case "": 
-					break;
-				default: 
-					UserNotification u = new UserNotification(UserNotification.MESSAGE, this, command, message, request);
-					dispatchNotification(u);
-					MOSS.userMessage(this, command, message, request);
-					break;
+						invoke(INVOKE_ON_ROOM, opStatus ? OK : ERROR, request);
+						break;
+					case INVOKE_ON_ALL: 
+						if (messages.length >= 1) {
+							MOSS.invokeOnAll(this, messages[0], messages[1]);
+							opStatus = true;
+						}
+						invoke(INVOKE_ON_ALL, opStatus ? OK : ERROR, request);
+						break;
+					case SET_TIME_OUT: 
+						try {
+							int timeout = Integer.valueOf(message);
+							if(timeout >= 0 && timeout <= 600000) { // 10 minutes max
+								socket.setSoTimeout(timeout);
+								opStatus = true;
+							}
+						} catch (SocketException e) {
+							e.printStackTrace();
+						}
+						invoke(SET_TIME_OUT, opStatus ? OK : ERROR, request);
+						break;
+					case LOG:
+						MOSS.filelog.add(id(), message);
+						invoke(LOG, OK, request);
+						break;
+					case PING: 
+						invoke(PONG, OK, request);
+						break;
+					case PONG: 
+					case "":
+						break;
+					default:
+						invoke(command, ERROR, request);
+						break;
+				}
+			}
+			else
+			{
+				UserNotification u = new UserNotification(UserNotification.MESSAGE, this, command, message, request);
+				dispatchNotification(u);
+				MOSS.userMessage(this, command, message, request);
 			}
 			
 			match = Utils.patternPingPong.matcher(command + message);
@@ -405,7 +455,7 @@ public class User extends Observable
 	private void approveLogin(boolean approved, String request)
 	{
 		if(id != null)
-			invoke(approved ? "connected" : "waiting", request);
+			invoke(CONNECT, approved ? OK : WAITING, request);
 	}
 	
 	protected void approveLogin()
@@ -421,7 +471,7 @@ public class User extends Observable
 	
 	protected void doubleLogin()
 	{
-		invoke("doublelogin");
+		invoke(CONNECT, DOUBLE_LOGIN);
 		disconnect();
 	}
 	

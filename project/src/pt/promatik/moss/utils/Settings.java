@@ -12,6 +12,7 @@ public class Settings extends Properties
 	private Moss MOSS;
 	
 	// Default settings
+	public String server_ip = null;
 	public int server_port = 0;
 	public int server_log_level = 0;
 	public int server_max_users = 0;
@@ -44,13 +45,14 @@ public class Settings extends Properties
 				if(getProperty("server_waiting_users") != null) server_waiting_users = Integer.parseInt(getProperty("server_waiting_users"));
 				if(getProperty("mysql_port") != null) mysql_port = Integer.parseInt(getProperty("mysql_port"));
 				
-				MOSS.CONNECTIONS_MAX = server_max_users;
-				MOSS.CONNECTIONS_WAITING = server_waiting_users;
+				MOSS.connections_max = server_max_users;
+				MOSS.connections_waiting = server_waiting_users;
 			} catch (NumberFormatException e) {
 				Utils.log("An error ocurred while trying to parse a number from config file", e);
 			}
 			
 			// Default settings
+			server_ip = getProperty("server_ip");
 			mysql_host = getProperty("mysql_host");
 			mysql_database = getProperty("mysql_database");
 			mysql_user = getProperty("mysql_user");
@@ -61,7 +63,7 @@ public class Settings extends Properties
 			
 			input.close();
 		} catch (Exception e) {
-			Utils.log("Config file not found", e);
+			Utils.log("Config file not found");
 		}
 	}
 }

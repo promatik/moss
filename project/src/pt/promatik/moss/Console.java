@@ -3,6 +3,7 @@ package pt.promatik.moss;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -22,7 +23,7 @@ public class Console extends Thread
 	public Console(Moss instance)
 	{
 		MOSS = instance;
-		commands = Arrays.asList(LOG, MAX_PLAYERS, MAX_WAITING, USER_COUNT);
+		commands = new ArrayList<String>(Arrays.asList(LOG, MAX_PLAYERS, MAX_WAITING, USER_COUNT));
 	}
 	
 	public void registCommand(String command)
@@ -43,7 +44,7 @@ public class Console extends Thread
 			BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
 	        try {
 				input = br.readLine();
-				if(input.length() > 0) {
+				if(input != null && input.length() > 0) {
 					switch (input) {
 						case HELP:
 							Utils.forceLog("Command list:");
@@ -70,12 +71,12 @@ public class Console extends Thread
 								int result = Integer.parseInt(input);
 								if(result < 0)
 									throw new NumberFormatException();
-								MOSS.CONNECTIONS_MAX = result;
+								MOSS.connections_max = result;
 								MOSS.server.userLimitsUpdate();
 							} catch (NumberFormatException e) {
 								Utils.forceLog("Not a valid number.");
 							} finally {
-								Utils.forceLog("CONNECTIONS_MAX = " + String.valueOf(MOSS.CONNECTIONS_MAX));
+								Utils.forceLog("CONNECTIONS_MAX = " + String.valueOf(MOSS.connections_max));
 							}
 							break;
 						case MAX_WAITING:
@@ -85,12 +86,12 @@ public class Console extends Thread
 								int result = Integer.parseInt(input);
 								if(result < 0)
 									throw new NumberFormatException();
-								MOSS.CONNECTIONS_WAITING = result;
+								MOSS.connections_waiting = result;
 								MOSS.server.userLimitsUpdate();
 							} catch (NumberFormatException e) {
 								Utils.forceLog("Not a valid number.");
 							} finally {
-								Utils.forceLog("CONNECTIONS_WAITING = " + String.valueOf(MOSS.CONNECTIONS_WAITING));
+								Utils.forceLog("CONNECTIONS_WAITING = " + String.valueOf(MOSS.connections_waiting));
 							}
 							break;
 						case USER_COUNT:
