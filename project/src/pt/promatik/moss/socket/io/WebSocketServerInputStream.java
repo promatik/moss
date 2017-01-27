@@ -13,6 +13,8 @@ import pt.promatik.moss.socket.http.HttpRequest;
 
 public class WebSocketServerInputStream extends InputStream {
 	public static final int EOF = -1;
+	public static final int NULL = 0;
+	public static final int PIPE = 124;
 	public static final int CR = 13;
 	public static final int LF = 10;
 	public static final int HANDSHAKE_NONCE_LENGTH = 16;
@@ -50,12 +52,14 @@ public class WebSocketServerInputStream extends InputStream {
 	private boolean closeReceived = false;
 	private boolean failed = false;
 	private boolean handshakeComplete = false;
-	private boolean isWebSocket = true;
+	private boolean isWebSocket = false;
 	private InputStream inputStream = null;
 	private final int[] maskingBytes = new int[NUM_MASKING_BYTES];
 	private int maskingIndex = 0;
 	private WebSocketServerOutputStream outputPeer = null;
 	private long payloadLength = 0L;
+	private boolean haveFirstMessage = false;
+	private String firstMessage = null;
 
 	public static final int asUnsignedInt(final byte b) {
 		int x = b;
@@ -151,12 +155,22 @@ public class WebSocketServerInputStream extends InputStream {
 			return EOF;
 		}
 		if (!handshakeComplete) {
-			shakeHands();
+			firstMessage = shakeHands();
+			haveFirstMessage = firstMessage != null;
 			if (!handshakeComplete) {
 				failTheWebSocketConnection();
 				return EOF;
 			}
 		}
+		if(haveFirstMessage) {
+			char c = firstMessage.charAt(0);
+			firstMessage = firstMessage.substring(1);
+			if(firstMessage.length() == 0)
+				haveFirstMessage = false;
+			
+			return c;
+		}
+		
 		return nextWebSocketByte();
 	}
 
@@ -178,6 +192,8 @@ public class WebSocketServerInputStream extends InputStream {
 					lastWasCarriageReturn = false;
 					baos.write(LF);
 				}
+			} else if (data == NULL || data == PIPE) {
+				return baos.toString(UTF_8);
 			} else {
 				if (lastWasCarriageReturn) {
 					baos.write(CR);
@@ -281,7 +297,7 @@ public class WebSocketServerInputStream extends InputStream {
 		}
 	}
 
-	private void shakeHands() throws IOException {
+	private String shakeHands() throws IOException {
 		HttpRequest req = new HttpRequest(inputStream);
 		String requestLine = req.get(HttpRequest.REQUEST_LINE);
 		handshakeComplete = checkStartsWith(requestLine, "GET /") && checkContains(requestLine, "HTTP/")
@@ -291,15 +307,13 @@ public class WebSocketServerInputStream extends InputStream {
 		String nonce = req.get("Sec-WebSocket-Key");
 		
 		if (handshakeComplete) {
+			isWebSocket = true;
 			byte[] nonceBytes = base64Decode(nonce.getBytes(StandardCharsets.UTF_8));
 			if (nonceBytes.length != HANDSHAKE_NONCE_LENGTH) {
 				handshakeComplete = false;
 			}
-		}
-		
-		if(requestLine.equals("#MOSS#")) {
+		} else {
 			handshakeComplete = true;
-			isWebSocket = false;
 		}
 		
 		if (handshakeComplete && isWebSocket) {
@@ -312,8 +326,11 @@ public class WebSocketServerInputStream extends InputStream {
 			outputPeer.write(asUTF8("Sec-WebSocket-Accept: "));
 			outputPeer.write(asUTF8(acceptKey));
 			outputPeer.write(asUTF8("\r\n\r\n"));
+			
+			outputPeer.setHandshakeComplete(true);
 		}
-		outputPeer.setHandshakeComplete(handshakeComplete);
+		
+		return isWebSocket ? null : requestLine;
 	}
 
 	private void failTheWebSocketConnection() {

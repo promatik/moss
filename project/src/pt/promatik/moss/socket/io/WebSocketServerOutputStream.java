@@ -54,7 +54,7 @@ public class WebSocketServerOutputStream extends OutputStream {
 			System.arraycopy(b, off, dst, 0, len);
 			writeBinary(dst);
 		} else {
-			super.write(b, off, len);
+			outputStream.write(b, off, len);
 		}
 	}
 
@@ -63,7 +63,7 @@ public class WebSocketServerOutputStream extends OutputStream {
 		if (handshakeComplete) {
 			writeBinary(b);
 		} else {
-			super.write(b);
+			outputStream.write(b);
 		}
 	}
 

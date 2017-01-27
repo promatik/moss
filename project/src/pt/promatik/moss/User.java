@@ -20,6 +20,9 @@ import java.io.OutputStream;
 
 public class User extends Observable
 {
+	public static final int PIPE = 124;
+	public static final int CARDINAL = 35;
+	
 	public static final String MSG_DELIMITER = "&!";
 	public static final String MSG_USER_DELIMITER = "&;";
 
@@ -209,14 +212,11 @@ public class User extends Observable
 				
 				int k = in.read();
 				while( connected ) {
-					if((k = in.read()) < 0)
-						break;
-					
 					result += (char) k;
 					
-					if(result.contains("|")) {
+					if(k == PIPE) {
 						validConn = true;
-						if(result.contains("MOSS"))
+						if(result.charAt(0) == CARDINAL) // Easily pre-validates moss message
 							processMessage(result);
 						result = "";
 					}
@@ -225,6 +225,9 @@ public class User extends Observable
 					if(!validConn && result.equals("<policy-file-request/>")) {
 						sendMessage("<?xml version=\"1.0\"?><cross-domain-policy><allow-access-from domain=\"*\" to-ports=\"" + MOSS.server_port + "\" /></cross-domain-policy>\0");
 					}
+
+					if((k = in.read()) < 0)
+						break;
 				}
 			} catch (SocketTimeoutException e) {
 				Utils.log("Connection reset exception: " + e.toString());

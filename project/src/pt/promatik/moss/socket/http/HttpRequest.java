@@ -73,15 +73,12 @@ public class HttpRequest implements Map<String, String> {
 		headerMap = new HashMap<String, String>();
 		try {
 			String line = lis.readLine();
-			if(line.equals("#MOSS#"))
-			{
-				headerMap.put(REQUEST_LINE, line);
-			} else
-			{
-				while (line != null && line.isEmpty()) {
-					line = lis.readLine();
-				}
-				headerMap.put(REQUEST_LINE, line);
+			while (line != null && line.isEmpty()) {
+				line = lis.readLine();
+			}
+			headerMap.put(REQUEST_LINE, line);
+			
+			if(line != null && line.contains("GET")) { // WebSocket
 				while (line != null && !line.isEmpty()) {
 					int firstColonPos = line.indexOf(":");
 					if (firstColonPos > 0) {
