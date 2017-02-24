@@ -30,6 +30,12 @@ public class Console extends Thread
 	{
 		commands.add(command);
 	}
+
+	public <E extends Enum<?>> void registCommands(Class<E> c)
+	{
+		for (E o: c.getEnumConstants())
+			commands.add(o.name());
+	}
 	
 	public List<String> getCommandList()
 	{
@@ -42,16 +48,16 @@ public class Console extends Thread
 		while(true)
 		{
 			BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
-	        try {
+			try {
 				input = br.readLine();
 				if(input != null && input.length() > 0) {
 					switch (input) {
 						case HELP:
-							Utils.forceLog("Command list:");
-							Utils.forceLog(String.join(", ", commands));
+							Utils.log("Command list:", true);
+							Utils.log(String.join(", ", commands), true);
 							break;
 						case LOG:
-							Utils.forceLog("Log levels: \n0 None\n1 Default\n2 Errors\n3 Full");
+							Utils.log("Log levels: \n0 None\n1 Default\n2 Errors\n3 Full", true);
 							input = br.readLine();
 							try {
 								int result = Integer.parseInt(input);
@@ -59,13 +65,13 @@ public class Console extends Thread
 									throw new NumberFormatException();
 								Utils.log_level = result;
 							} catch (NumberFormatException e) {
-								Utils.forceLog("Not a valid number.");
+								Utils.error("Not a valid number.");
 							} finally {
-								Utils.forceLog("LOG = " + String.valueOf(Utils.log_level));
+								Utils.log("LOG = " + String.valueOf(Utils.log_level), true);
 							}
 							break;
 						case MAX_PLAYERS:
-							Utils.forceLog("Input an integer value greather or equal to zero");
+							Utils.log("Input an integer value greather or equal to zero", true);
 							input = br.readLine();
 							try {
 								int result = Integer.parseInt(input);
@@ -74,13 +80,13 @@ public class Console extends Thread
 								MOSS.connections_max = result;
 								MOSS.server.userLimitsUpdate();
 							} catch (NumberFormatException e) {
-								Utils.forceLog("Not a valid number.");
+								Utils.error("Not a valid number.");
 							} finally {
-								Utils.forceLog("CONNECTIONS_MAX = " + String.valueOf(MOSS.connections_max));
+								Utils.log("CONNECTIONS_MAX = " + String.valueOf(MOSS.connections_max), true);
 							}
 							break;
 						case MAX_WAITING:
-							Utils.forceLog("Input an integer value greather or equal to zero");
+							Utils.log("Input an integer value greather or equal to zero", true);
 							input = br.readLine();
 							try {
 								int result = Integer.parseInt(input);
@@ -89,26 +95,26 @@ public class Console extends Thread
 								MOSS.connections_waiting = result;
 								MOSS.server.userLimitsUpdate();
 							} catch (NumberFormatException e) {
-								Utils.forceLog("Not a valid number.");
+								Utils.error("Not a valid number.");
 							} finally {
-								Utils.forceLog("CONNECTIONS_WAITING = " + String.valueOf(MOSS.connections_waiting));
+								Utils.log("CONNECTIONS_WAITING = " + String.valueOf(MOSS.connections_waiting), true);
 							}
 							break;
 						case USER_COUNT:
 							int total = MOSS.server.getUsers().size();
 							int totalWaiting = MOSS.server.getWaitingUsers().size();
-							Utils.forceLog(total + " online users");
+							Utils.log(total + " online users", true);
 							if(totalWaiting > 0)
-								Utils.forceLog(totalWaiting + " waiting to play users");
+								Utils.log(totalWaiting + " waiting to play users", true);
 							
 							break;
 						default:
 							if(commands.contains(input)) {
-								Utils.forceLog("Input the value for '" + input + "':");
+								Utils.log("Input the value for '" + input + "':", true);
 								String value = br.readLine();
 								MOSS.commandInput(input, value);
 							} else {
-								Utils.forceLog("The command '" + input + "' was not found.\nType 'help' to get the command list.\nWhile developing, use 'registCommand()' to regist your own commands.");
+								Utils.error("The command '" + input + "' was not found.\nType 'help' to get the command list.\nWhile developing, use 'registCommand()' to regist your own commands.");
 							}
 							break;
 					}
@@ -116,7 +122,6 @@ public class Console extends Thread
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
-        }
-	        
+		}
 	}
 }

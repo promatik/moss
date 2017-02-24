@@ -134,7 +134,7 @@ public class Server extends Thread
 					if(toWait) waiting.add(user);
 					else users.add(user);
 					
-					Utils.log("Client #" + users.size() + " - " + socket + " has connected.");
+					Utils.log("Client #" + users.size() + " connected from " + socket);
 				} else {
 					Thread.sleep(1000);
 				}

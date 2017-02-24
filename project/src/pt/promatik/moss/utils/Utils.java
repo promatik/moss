@@ -1,6 +1,7 @@
 package pt.promatik.moss.utils;
 
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
@@ -21,6 +22,9 @@ public class Utils
 	
 	public static Random random = new Random(System.nanoTime());
 	public static Pattern patternMessage, patternPingPong;
+	
+	private final static String TAG = "MOSS";
+	private static long nanoTime = 0;
 
 	public static void log(String message)
 	{
@@ -32,6 +36,11 @@ public class Utils
 		log(message, ref, false);
 	}
 	
+	public static void log(String message, boolean forceLog)
+	{
+		log(message, "", forceLog);
+	}
+	
 	public static void log(String message, Exception e)
 	{
 		log(message, "", e);
@@ -39,14 +48,14 @@ public class Utils
 	
 	public static void log(String message, String ref, Exception e)
 	{
-		log(message, ref, false);
+		error(message, ref);
 		log(e);
 	}
 	
 	public static void log(String message, String ref, boolean forceLog)
 	{
 		if(log_level >= LOG_DEFAULT || forceLog) {
-			System.out.println( (ref.equals("") ? "MOSS" : ref) + " " + new SimpleDateFormat("HH:mm:ss").format(new Date()) + "> " + message);
+			System.out.println( (ref.equals("") ? TAG : ref) + " " + new SimpleDateFormat("HH:mm:ss").format(new Date()) + "> " + message);
 		}
 	}
 	
@@ -57,11 +66,21 @@ public class Utils
 		}
 	}
 	
-	public static void forceLog(String message)
+	public static void error(String message)
 	{
-		log(message, "", true);
+		error(message, "");
+	}
+	
+	public static void error(String message, String ref)
+	{
+		System.err.println( (ref.equals("") ? TAG : ref) + " " + new SimpleDateFormat("HH:mm:ss").format(new Date()) + "> " + message);
 	}
 
+	public static String JSONStringify(String... args)
+	{
+		return JSONStringify(map(args));
+	}
+	
 	public static String JSONStringify(HashMap<String, Object> args)
 	{
 		JSONObject json = new JSONObject();
@@ -95,6 +114,11 @@ public class Utils
 		return r;
 	}
 	
+	public static <T extends Enum<T>> T random(Class<T> enumerator)
+	{
+		return random(Arrays.asList(enumerator.getEnumConstants()));
+	}
+	
 	public static <T> T random(Collection<T> coll)
 	{
 		if(coll.size() == 0) return null;
@@ -106,5 +130,26 @@ public class Utils
 	public static int random(int min, int max)
 	{
 		return min + (int)(Math.random() * (max - min + 1));
+	}
+	
+	public static boolean isEmptyOrNull(String message)
+	{
+		return message == null || message.isEmpty() || message.equals("null");
+	}
+	
+	public static void sleep(int miliseconds) {
+		try { Thread.sleep(miliseconds); } catch (InterruptedException e) { }
+	}
+	
+	public static void nanoTime()
+	{
+		nanoTime(false, "");
+	}
+	
+	public static void nanoTime(boolean print, String suffix)
+	{
+		float val = (System.nanoTime() - nanoTime) / 1000000f;
+		if(print) log(val + " ms " + suffix);
+		nanoTime = System.nanoTime();
 	}
 }

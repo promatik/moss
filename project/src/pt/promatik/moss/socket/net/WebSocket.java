@@ -3,12 +3,15 @@ package pt.promatik.moss.socket.net;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.SocketException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import pt.promatik.moss.socket.io.WebSocketServerInputStream;
 import pt.promatik.moss.socket.io.WebSocketServerOutputStream;
 
 public class WebSocket extends Socket {
 	private final Socket socket;
+	private final Pattern pattern = Pattern.compile("addr=/([0-9\\.]+),port=([0-9]+)");
 	private WebSocketServerInputStream wssis = null;
 	private WebSocketServerOutputStream wssos = null;
 
@@ -147,7 +150,9 @@ public class WebSocket extends Socket {
 
 	@Override
 	public final String toString() {
-		return socket.toString();
+		String s = socket.toString();
+		Matcher matcher = pattern.matcher(s);
+		return matcher.find() ? (matcher.group(1) + ":" + matcher.group(2)) : s;
 	}
 
 	@Override

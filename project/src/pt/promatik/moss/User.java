@@ -3,7 +3,7 @@ package pt.promatik.moss;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -75,8 +75,9 @@ public class User extends Observable
 	private boolean available = true;
 	private boolean waiting = false;
 	private HashMap<String, Object> data = new HashMap<String, Object>();
-	
+
 	private boolean validConn = false;
+	private boolean encodeMessages = false;
 	private Matcher match;
 
 	// Getters
@@ -93,6 +94,7 @@ public class User extends Observable
 		MOSS = instance;
 		socket = newSocket;
 		waiting = waiting_status;
+		encodeMessages = MOSS.charset_in != StandardCharsets.UTF_8;
 		start();
 	}
 	
@@ -177,11 +179,11 @@ public class User extends Observable
 		boolean sent = false;
 		try {
 			if(connected) {
-				out.write(message.getBytes(Charset.forName(MOSS.charset_out)));
+				out.write(message.getBytes(MOSS.charset_out));
 				sent = true;
 			}
 		} catch (IOException e) {
-			Utils.log("Connection io exception: " + e.toString(), e);
+			Utils.error(id + ", connection IOException");
 			disconnect();
 		}
 		return sent;
@@ -215,6 +217,9 @@ public class User extends Observable
 					result += (char) k;
 					
 					if(k == PIPE) {
+						if(encodeMessages)
+							result = new String(result.getBytes(MOSS.charset_in), StandardCharsets.UTF_8);
+						
 						validConn = true;
 						if(result.charAt(0) == CARDINAL) // Easily pre-validates moss message
 							processMessage(result);
@@ -230,11 +235,11 @@ public class User extends Observable
 						break;
 				}
 			} catch (SocketTimeoutException e) {
-				Utils.log("Connection reset exception: " + e.toString());
+				Utils.error(id + ", connection reset SocketTimeoutException");
 			} catch (SocketException e) {
-				Utils.log("Connection reset exception: " + e.toString());
+				Utils.error(id + ", connection reset SocketException");
 			} catch (Exception e) {
-				Utils.log("Connection reset exception: " + e.toString(), e);
+				Utils.log(id + ", connection reset Exception: " + e.toString(), e);
 			} finally {
 				disconnect();
 			}
@@ -451,7 +456,7 @@ public class User extends Observable
 			
 			match = Utils.patternPingPong.matcher(command + message);
 			if (!match.find() && Utils.log_level >= Utils.LOG_FULL)
-				Utils.log(this.id + ", " + command + ", " + message);
+				Utils.log(this.id + ", " + command.replaceFirst("^_", "") + "(" + message.replaceAll(MSG_DELIMITER, ", ") + ")");
 		}
 	}
 	
@@ -482,7 +487,8 @@ public class User extends Observable
 	{
 		if(!connected)
 			return;
-
+		
+		connected = false;
 		dispatchNotification(new UserNotification(UserNotification.DISCONNECTED, this));
 		
 		Utils.log(this.id + ", " + socket + " has disconnected.");
@@ -494,7 +500,6 @@ public class User extends Observable
 			if(this.id != null)
 				MOSS.userDisconnected(this);
 			
-			connected = false;
 			in.close();
 			out.close();
 			socket.close();

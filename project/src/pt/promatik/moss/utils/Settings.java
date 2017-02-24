@@ -63,7 +63,7 @@ public class Settings extends Properties
 			
 			input.close();
 		} catch (Exception e) {
-			Utils.log("Config file not found");
+			Utils.error("Config file not found");
 		}
 	}
 }

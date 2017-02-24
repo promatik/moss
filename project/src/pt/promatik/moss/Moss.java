@@ -1,10 +1,15 @@
 package pt.promatik.moss;
 
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.Vector;
@@ -21,7 +26,7 @@ import pt.promatik.moss.vo.UserVO;
 
 public abstract class Moss
 {
-	public static final String VERSION = "2.0.1";
+	public static final String VERSION = "2.0.2";
 
 	public int server_port = 30480;
 	public String server_ip = null;
@@ -36,8 +41,8 @@ public abstract class Moss
 	public boolean autoLogoutOnDoubleLogin = true;
 	public int connections_max = 0;
 	public int connections_waiting = 0;
-	public String charset_in = "UTF-8";
-	public String charset_out = "UTF-8";
+	public Charset charset_in = StandardCharsets.UTF_8;
+	public Charset charset_out = StandardCharsets.UTF_8;
 	
 	private Timer appTimer = new Timer();
 	
@@ -239,7 +244,23 @@ public abstract class Moss
 	
 	public synchronized User getUserByID(UserVO user)
 	{
-		User u = server.getRoom(user.room).users.get(user.id);
+		return getUserByID(user.id, user.room);
+	}
+	
+	public synchronized User getUserByID(String id)
+	{
+		User user = null;
+		for (Room room : server.getRooms()) {
+			user = room.users.get(id);
+			if(user != null)
+				return user; 
+		}
+		return null;
+	}
+	
+	public synchronized User getUserByID(String id, String room)
+	{
+		User u = server.getRoom(room).users.get(id);
 		return u;
 	}
 	
@@ -259,21 +280,38 @@ public abstract class Moss
 		return server.getRoom(room).users.size();
 	}
 	
-	public synchronized User pickRandomPlayer(String myId)
+	public synchronized User pickRandomPlayer(String excludeID)
 	{
-		return randomPlayer(myId, server.getUsers());
+		return randomPlayer(excludeID, server.getUsers());
 	}
 	
-	public synchronized User pickRandomPlayer(String myId, String room)
+	public synchronized User pickRandomPlayer(String excludeID, String room)
 	{
-		return randomPlayer(myId, server.getRoom(room).users.values());
+		return randomPlayer(excludeID, server.getRoom(room).users.values());
 	}
 	
-	private synchronized User randomPlayer(String myId, Collection<User> users)
+	public synchronized User pickRandomPlayer(String[] excludeIDs)
+	{
+		return randomPlayer(excludeIDs, server.getUsers());
+	}
+	
+	public synchronized User pickRandomPlayer(String[] excludeIDs, String room)
+	{
+		return randomPlayer(excludeIDs, server.getRoom(room).users.values());
+	}
+	
+	private synchronized User randomPlayer(String excludeID, Collection<User> users)
+	{
+		return randomPlayer(new String[] {excludeID}, users);
+	}
+	
+	private synchronized User randomPlayer(String[] excludeIDs, Collection<User> users)
 	{
 		Vector<User> list = new Vector<User>();
+		Set<String> excludes = new HashSet<String>(Arrays.asList(excludeIDs));
+		
 		for (User user : users) {
-			if(!user.id().equals(myId) && user.isAvailable())
+			if(user.isAvailable() && !excludes.contains(user.id()))
 				list.add(user);
 		}
 		
