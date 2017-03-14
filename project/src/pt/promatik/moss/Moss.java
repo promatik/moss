@@ -10,13 +10,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.Vector;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import pt.promatik.moss.utils.Delegate;
 import pt.promatik.moss.utils.FileLogger;
 import pt.promatik.moss.utils.HttpRequest;
 import pt.promatik.moss.utils.MySQL;
@@ -26,7 +25,7 @@ import pt.promatik.moss.vo.UserVO;
 
 public abstract class Moss
 {
-	public static final String VERSION = "2.0.2";
+	public static final String VERSION = "2.0.3";
 
 	public int server_port = 30480;
 	public String server_ip = null;
@@ -44,7 +43,7 @@ public abstract class Moss
 	public Charset charset_in = StandardCharsets.UTF_8;
 	public Charset charset_out = StandardCharsets.UTF_8;
 	
-	private Timer appTimer = new Timer();
+	private Delegate appTimer;
 	
 	public Moss()
 	{
@@ -136,23 +135,12 @@ public abstract class Moss
 	
 	protected void startPingTimer(int interval)
 	{
-		Timer pingTimer = new Timer();
-		pingTimer.schedule(new TimerTask() {
-			@Override
-			public void run() {
-				server.pingUsers();
-			}
-		}, 0, interval);
+		Delegate.run(() -> server.pingUsers(), 0, interval);
 	}
 	
 	protected void startTimer(int interval)
 	{
-		appTimer.schedule(new TimerTask() {
-			@Override
-			public void run() {
-				appTimer();
-			}
-		}, 1000, interval); 
+		appTimer = Delegate.run(() -> appTimer(), 1000, interval);
 	}
 	
 	protected void stopTimer()
@@ -162,7 +150,7 @@ public abstract class Moss
 	
 	protected void appTimer()
 	{
-		System.out.println("To use timer you should override appTimer()");
+		Utils.error("To use timer you should override appTimer()");
 	}
 	
 	protected void stop()

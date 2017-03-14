@@ -102,19 +102,31 @@ public class MySQL
 		return result;
 	}
 	
-	public void query(String query)
+	public long query(String query)
 	{
+		if(Utils.log_level >= Utils.LOG_VERBOSE)
+			Utils.log(query, tag);
+		
+		long id = -1;
 		Statement stmt = null;
 		try {
 			stmt = conn.createStatement();
 			if(query.indexOf("UPDATE") == 0 || query.indexOf("INSERT") == 0)
-				stmt.executeUpdate(query);
+				stmt.executeUpdate(query, Statement.RETURN_GENERATED_KEYS);
 			else
 				stmt.executeQuery(query);
+			
+			try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
+				if (generatedKeys.next()) {
+					id = generatedKeys.getLong(1);
+				}
+			}
+			
 			stmt.close();
 		} catch (SQLException e) {
 			Utils.error("Statement exception " + e.toString(), tag);
 			Utils.error("Query: " + query, tag);
 		}
+		return id;
 	}
 }

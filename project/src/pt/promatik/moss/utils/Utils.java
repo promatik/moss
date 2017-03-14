@@ -1,5 +1,8 @@
 package pt.promatik.moss.utils;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Collection;
@@ -76,7 +79,7 @@ public class Utils
 		System.err.println( (ref.equals("") ? TAG : ref) + " " + new SimpleDateFormat("HH:mm:ss").format(new Date()) + "> " + message);
 	}
 
-	public static String JSONStringify(String... args)
+	public static String JSONStringify(Object... args)
 	{
 		return JSONStringify(map(args));
 	}
@@ -151,5 +154,24 @@ public class Utils
 		float val = (System.nanoTime() - nanoTime) / 1000000f;
 		if(print) log(val + " ms " + suffix);
 		nanoTime = System.nanoTime();
+	}
+	
+	public static <T extends Enum<T>> boolean enumContains(Class<T> enumerator, String value)
+	{
+		for (T c : enumerator.getEnumConstants()) {
+			if (c.name().equals(value)) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	public static String encodeString(String str, Charset to_charset) {
+		return encodeString(str, StandardCharsets.UTF_8, to_charset);
+	}
+	
+	public static String encodeString(String str, Charset from_charset, Charset to_charset) {
+		ByteBuffer s = from_charset.encode(str);
+		return new String( s.array(), to_charset );
 	}
 }

@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Set;
 
 import pt.promatik.moss.socket.io.WebSocketServerInputStream;
+import pt.promatik.moss.utils.Utils;
 
 public class HttpRequest implements Map<String, String> {
 	public static final String REQUEST_LINE = "REQUEST_LINE";
@@ -96,7 +97,7 @@ public class HttpRequest implements Map<String, String> {
 			}
 			lis.close();
 		} catch (IOException e) {
-			System.out.println("Unable to read HTTP Request in HttpRequest.read():");
+			Utils.error("Unable to read HTTP Request in HttpRequest.read()");
 		}
 		headerMap = Collections.unmodifiableMap(headerMap);
 

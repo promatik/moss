@@ -1,7 +1,7 @@
 Manifest-Version: 1.0
 Sealed: true
 Main-Class: pt.promatik.moss.Moss
-Bundle-Version: 2.0.0
+Bundle-Version: 2.0.3
 Bundle-SymbolicName: pt.promatik.moss
 Bundle-Name: MOSS
 Bundle-Vendor: promatik.pt
