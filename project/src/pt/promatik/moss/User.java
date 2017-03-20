@@ -191,10 +191,11 @@ public class User extends Observable
 	
 	// GETS & SETS
 	public String getStatus() { return status; }
-	
-	public String getAvailability() { return status; }
-	public void setAvailability(String status) { this.status = status; }
-	
+	public void setStatus(String status) { this.status = status; }
+
+	public Boolean getAvailability() { return available; }
+	public void setAvailability(Boolean available) { this.available = available; }
+	public void setAvailability(String available) { this.available = available.equals(AVAILABLE); }
 	
 	private class Inport extends Thread
 	{
@@ -235,7 +236,8 @@ public class User extends Observable
 						break;
 				}
 			} catch (SocketTimeoutException e) {
-				Utils.error(id + ", connection reset SocketTimeoutException");
+				if(id != null)
+					Utils.error(id + ", connection reset SocketTimeoutException");
 			} catch (SocketException e) {
 				Utils.error(id + ", connection reset SocketException");
 			} catch (Exception e) {

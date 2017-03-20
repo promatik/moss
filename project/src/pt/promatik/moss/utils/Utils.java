@@ -172,6 +172,6 @@ public class Utils
 	
 	public static String encodeString(String str, Charset from_charset, Charset to_charset) {
 		ByteBuffer s = from_charset.encode(str);
-		return new String( s.array(), to_charset );
+		return new String( s.array(), to_charset ).trim();
 	}
 }

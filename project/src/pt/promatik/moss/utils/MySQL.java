@@ -1,5 +1,7 @@
 package pt.promatik.moss.utils;
 
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -32,12 +34,17 @@ public class MySQL
 	
 	public void connect(String host, int _port, String database, String user, String password)
 	{
+		connect(host, port, database, user, password, true, StandardCharsets.UTF_8);
+	}
+	
+	public void connect(String host, int _port, String database, String user, String password, boolean useUnicode, Charset charset)
+	{
 		if(_port > 0)
 			port = _port;
 		
 		try {
 			Class.forName("com.mysql.jdbc.Driver").newInstance();
-			conn = DriverManager.getConnection("jdbc:mysql://" + host + ":" + String.valueOf(port) + "/" + database, user, password);
+			conn = DriverManager.getConnection("jdbc:mysql://" + host + ":" + String.valueOf(port) + "/" + database + "?useUnicode=" + (useUnicode ? "yes" : "no") + "&characterEncoding=" + charset.name(), user, password);
 			connected = true;
 		} catch (Exception e) {
 			Utils.log("Connect exception " + e.toString() + " - " + e.getMessage(), tag, e);

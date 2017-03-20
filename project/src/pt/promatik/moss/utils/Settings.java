@@ -38,20 +38,13 @@ public class Settings extends Properties
 			input = new FileInputStream(filename);
 			load(input);
 			
-			try {
-				if(getProperty("server_port") != null) server_port = Integer.parseInt(getProperty("server_port"));
-				if(getProperty("server_log_level") != null) server_log_level = Integer.parseInt(getProperty("server_log_level"));
-				if(getProperty("server_max_users") != null) server_max_users = Integer.parseInt(getProperty("server_max_users"));
-				if(getProperty("server_waiting_users") != null) server_waiting_users = Integer.parseInt(getProperty("server_waiting_users"));
-				if(getProperty("mysql_port") != null) mysql_port = Integer.parseInt(getProperty("mysql_port"));
-				
-				MOSS.connections_max = server_max_users;
-				MOSS.connections_waiting = server_waiting_users;
-			} catch (NumberFormatException e) {
-				Utils.log("An error ocurred while trying to parse a number from config file", e);
-			}
-			
 			// Default settings
+			server_port = getInteger("server_port");
+			server_log_level = getInteger("server_log_level");
+			server_max_users = getInteger("server_max_users");
+			server_waiting_users = getInteger("server_waiting_users");
+			mysql_port = getInteger("mysql_port");
+			
 			server_ip = getProperty("server_ip");
 			mysql_host = getProperty("mysql_host");
 			mysql_database = getProperty("mysql_database");
@@ -61,9 +54,36 @@ public class Settings extends Properties
 			filelog_path = getProperty("filelog_path");
 			filelog_filename = getProperty("filelog_filename");
 			
+			MOSS.connections_max = server_max_users;
+			MOSS.connections_waiting = server_waiting_users;
+			
 			input.close();
 		} catch (Exception e) {
 			Utils.error("Config file not found");
 		}
+	}
+	
+	public String getString(String key) {
+		return super.getProperty(key);
+	}
+	
+	public Integer getInteger(String key) {
+		int result = 0;
+		try {
+			result = Integer.parseInt(super.getProperty(key));
+		} catch (Exception e) {
+			Utils.error("Error parsing settings " + key);
+		}
+		return result;
+	}
+	
+	public Boolean getBoolean(String key) {
+		Boolean result = null;
+		try {
+			result = super.getProperty(key).equals("true");
+		} catch (Exception e) {
+			Utils.error("Error parsing settings " + key);
+		}
+		return result;
 	}
 }
