@@ -8,6 +8,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import java.util.Observable;
 
@@ -30,6 +31,9 @@ public class User extends Observable
 	public static final int GET_USERS_FILTER_ONLINE = 1;
 	public static final int GET_USERS_FILTER_OFFLINE = 2;
 
+	private static Pattern patternMessage = Pattern.compile("^#MOSS#<!(.+)!>#<!(.+)?!>#<!(.+)?!>#$");
+	private static Pattern patternPingPong = Pattern.compile("p[i|o]ng");
+	
 	// Commands
 	private static final String CONNECT = "_connect";
 	private static final String DISCONNECT = "_disconnect";
@@ -47,12 +51,14 @@ public class User extends Observable
 	private static final String INVOKE_ON_ALL = "_invokeOnAll";
 	private static final String SET_TIME_OUT = "_setTimeOut";
 	private static final String LOG = "_log";
-	public static final String PING = "_ping";
-	public static final String PONG = "_pong";
+	private static final String PING = "_ping";
+	private static final String PONG = "_pong";
 	
 	// Response messages
 	private static final String OK = "ok";
 	private static final String ERROR = "error";
+	private static final String AUTH_ERROR = "auth_error";
+	private static final String AUTH_REQUIRED = "AUTH_REQUIRED";
 	private static final String WAITING = "waiting";
 	private static final String DOUBLE_LOGIN = "doublelogin";
 	private static final String ALREADY_LOGIN = "alreadyLogin";
@@ -68,10 +74,10 @@ public class User extends Observable
 	private InputStream in;
 	private OutputStream out;
 
+	protected String id = null;
+	protected String room = "";
+	protected String status = "";
 	private boolean connected = false;
-	private String id = null;
-	private String room = "";
-	private String status = "";
 	private boolean available = true;
 	private boolean waiting = false;
 	private HashMap<String, Object> data = new HashMap<String, Object>();
@@ -88,6 +94,8 @@ public class User extends Observable
 	public boolean isAvailable(){ return available; }
 	public boolean isConnected(){ return connected; }
 	public HashMap<String, Object> data(){ return data; }
+	
+	public Object privateData;
 
 	public User(Moss instance, Socket newSocket, boolean waiting_status)
 	{
@@ -113,14 +121,16 @@ public class User extends Observable
 		this.id = id;
 	}
 	
-	public User(String id, String room)
+	public User(String id, String room, String status)
 	{
 		this.id = id;
 		this.room = room;
+		this.status = status;
 	}
 	
 	public void start(Moss instance, Socket newSocket)
 	{
+		MOSS = instance;
 		socket = newSocket;
 		start();
 	}
@@ -130,6 +140,8 @@ public class User extends Observable
 		if(socket != null) {
 			connected = true;
 			new Inport().start();
+		} else {
+			Utils.error("Socket isn't defined!");
 		}
 	}
 	
@@ -171,6 +183,7 @@ public class User extends Observable
 	
 	public boolean invoke(User from, String command, String message, String request)
 	{
+		logMessage(command, message, ">");
 		return sendMessage("#MOSS#<!" + command + "!>#<!" + (from != null ? from.toString() : "") + "!>#<!" + message + "!>#<!" + request + "!>#|");
 	}
 	
@@ -248,10 +261,18 @@ public class User extends Observable
 		}
 	}
 	
+	private void logMessage(String command, String message, String separator) {
+		if(Utils.log_level >= Utils.LOG_FULL) {
+			match = patternPingPong.matcher(command + message);
+			if (!match.find())
+				Utils.log(this.id + separator + " " + command.replaceFirst("^_", "") + "(" + message.replaceAll(MSG_DELIMITER, ", ") + ")");
+		}
+	}
+	
 	public void processMessage(String msg)
 	{
 		// Protocol: #MOSS#<!(command)!>#<!(messages)!>#<!(request)!>#|
-		// #MOSS#<!_connect				!>#<!(id)&!(room)&!(status)?							!>#<!(request)!>#|
+		// #MOSS#<!_connect				!>#<!(id)&!(room)&!(status)?&!(login)?&!(password)?		!>#<!(request)!>#|
 		// #MOSS#<!_disconnect			!>#<!													!>#<!(request)!>#|
 		// #MOSS#<!_updateStatus		!>#<!(status)											!>#<!(request)!>#|
 		// #MOSS#<!_updateAvailability	!>#<!(available)										!>#<!(request)!>#|
@@ -269,7 +290,7 @@ public class User extends Observable
 		// #MOSS#<!_log					!>#<!(data)												!>#<!(request)!>#|
 		
 		msg = msg.replaceAll("\\|", "");
-		match = Utils.patternMessage.matcher(msg);
+		match = patternMessage.matcher(msg);
 		
 		if (match.matches()) {
 			String command = match.group(1) + "";
@@ -286,28 +307,42 @@ public class User extends Observable
 			boolean opStatus = false;
 			boolean first = true;
 			
+			// Log
+			logMessage(command, message, "<");
+			
 			// Reserved commands start with underscore
 			if(command.charAt(0) == '_')
 			{
 				switch(command) {
 					case CONNECT: 
-						if (messages.length >= 2) {
-							this.id = messages[0];
-							this.room = messages[1];
-							if (messages.length == 3)
-								status = messages[2];
+						// Validate user login
+						if((MOSS.validateLogin && messages.length >= 4) || (!MOSS.validateLogin && messages.length >= 2)) {
+							this.id = MOSS.validateLogin ? 
+								MOSS.validateLogin(messages[3], messages[4], messages[5]):
+								messages[0];
 							
-							boolean found = MOSS.server.checkDoubleLogin(this.id) != null;
-							if(MOSS.autoLogoutOnDoubleLogin || !found)
-							{
-								MOSS.server.getRoom(this.room).add(this.id, this);
-								if(!this.id.equals("0"))
-									MOSS.userConnected(this);
-							
-								approveLogin(!waiting, request);
+							if(this.id != null) {
+								this.room = messages[1];
+								if (messages.length >= 3)
+									this.status = messages[2];
+								
+								// Check double login
+								boolean found = MOSS.server.checkDoubleLogin(this.id) != null;
+								if(MOSS.autoLogoutOnDoubleLogin || !found)
+								{
+									MOSS.server.getRoom(this.room).add(this.id, this);
+									if(!this.id.equals("0"))
+										MOSS.userConnected(this);
+								
+									approveLogin(!waiting, request);
+								} else {
+									invoke(CONNECT, ALREADY_LOGIN, request);
+								}
 							} else {
-								invoke(CONNECT, ALREADY_LOGIN, request);
+								invoke(CONNECT, AUTH_ERROR, request);
 							}
+						} else {
+							invoke(CONNECT, AUTH_REQUIRED, request);
 						}
 						break;
 					case DISCONNECT: 
@@ -451,15 +486,26 @@ public class User extends Observable
 			}
 			else
 			{
-				UserNotification u = new UserNotification(UserNotification.MESSAGE, this, command, message, request);
-				dispatchNotification(u);
-				MOSS.userMessage(this, command, message, request);
+				dispatchMessage(command, message, request);
 			}
-			
-			match = Utils.patternPingPong.matcher(command + message);
-			if (!match.find() && Utils.log_level >= Utils.LOG_FULL)
-				Utils.log(this.id + ", " + command.replaceFirst("^_", "") + "(" + message.replaceAll(MSG_DELIMITER, ", ") + ")");
 		}
+	}
+	
+	protected void dispatchMessage(String command)
+	{
+		dispatchMessage(command, "", "");
+	}
+	
+	protected void dispatchMessage(String command, String message)
+	{
+		dispatchMessage(command, message, "");
+	}
+	
+	protected void dispatchMessage(String command, String message, String request)
+	{
+		UserNotification u = new UserNotification(UserNotification.MESSAGE, this, command, message, request);
+		dispatchNotification(u);
+		MOSS.userMessage(this, command, message, request);
 	}
 	
 	private void approveLogin(boolean approved, String request)
@@ -483,6 +529,11 @@ public class User extends Observable
 	{
 		invoke(CONNECT, DOUBLE_LOGIN);
 		disconnect();
+	}
+	
+	public void ping()
+	{
+		invoke(User.PING);
 	}
 	
 	public void disconnect()

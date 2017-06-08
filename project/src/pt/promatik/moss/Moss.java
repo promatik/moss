@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.Vector;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -25,7 +24,7 @@ import pt.promatik.moss.vo.UserVO;
 
 public abstract class Moss
 {
-	public static final String VERSION = "2.0.3";
+	public static final String VERSION = "2.1.0";
 
 	public int server_port = 30480;
 	public String server_ip = null;
@@ -38,6 +37,7 @@ public abstract class Moss
 	
 	public int socketTimeout = 0;
 	public boolean autoLogoutOnDoubleLogin = true;
+	public boolean validateLogin = false;
 	public int connections_max = 0;
 	public int connections_waiting = 0;
 	public Charset charset_in = StandardCharsets.UTF_8;
@@ -128,9 +128,6 @@ public abstract class Moss
 		
 		console = new Console(this);
 		new Thread(console).start();
-		
-		Utils.patternMessage = Pattern.compile("^#MOSS#<!(.+)!>#<!(.+)?!>#<!(.+)?!>#$");
-		Utils.patternPingPong = Pattern.compile("p[i|o]ng");
 	}
 	
 	protected void startPingTimer(int interval)
@@ -171,6 +168,7 @@ public abstract class Moss
 	abstract public void userUpdatedRoom(User user, String room);
 	abstract public void userMessage(User user, String command, String message, String request);
 	abstract public void commandInput(String command, String value);
+	abstract public String validateLogin(String login, String password, String data);
 	
 	// -----------------
 	// User

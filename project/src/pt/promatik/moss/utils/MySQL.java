@@ -77,6 +77,12 @@ public class MySQL
 		return stmt;
 	}
 	
+	public String queryFirstField(String query, String field)
+	{
+		HashMap<String, String> res = queryFirst(query, field);
+		return res != null ? res.get(field) : null;
+	}
+	
 	public HashMap<String, String> queryFirst(String query, String... fields)
 	{
 		ArrayList<HashMap<String, String>> result = query(query, fields);
@@ -114,19 +120,27 @@ public class MySQL
 		if(Utils.log_level >= Utils.LOG_VERBOSE)
 			Utils.log(query, tag);
 		
-		long id = -1;
+		long result = -1;
 		Statement stmt = null;
 		try {
 			stmt = conn.createStatement();
-			if(query.indexOf("UPDATE") == 0 || query.indexOf("INSERT") == 0)
-				stmt.executeUpdate(query, Statement.RETURN_GENERATED_KEYS);
-			else
-				stmt.executeQuery(query);
 			
-			try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
-				if (generatedKeys.next()) {
-					id = generatedKeys.getLong(1);
+			if(query.indexOf("INSERT") == 0) {
+				stmt.executeUpdate(query, Statement.RETURN_GENERATED_KEYS);
+				try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
+					if (generatedKeys.next()) {
+						result = generatedKeys.getLong(1);
+					}
 				}
+			}
+			else if(query.indexOf("DELETE") == 0) {
+				result = stmt.executeUpdate(query);
+			}
+			else if(query.indexOf("UPDATE") == 0) {
+				result = stmt.executeUpdate(query);
+			}
+			else {
+				stmt.executeQuery(query);
 			}
 			
 			stmt.close();
@@ -134,6 +148,6 @@ public class MySQL
 			Utils.error("Statement exception " + e.toString(), tag);
 			Utils.error("Query: " + query, tag);
 		}
-		return id;
+		return result;
 	}
 }

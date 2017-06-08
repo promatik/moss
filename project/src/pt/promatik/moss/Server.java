@@ -89,8 +89,7 @@ public class Server extends Thread
 	{
 		Iterator<User> it = users.iterator();
 		while (it.hasNext()) {
-			User user = it.next();
-			user.invoke(User.PING);
+			it.next().ping();
 		}
 	}
 	

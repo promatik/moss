@@ -9,7 +9,6 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Random;
-import java.util.regex.Pattern;
 
 import org.json.JSONObject;
 
@@ -24,7 +23,6 @@ public class Utils
 	public static int log_level = LOG_FULL;
 	
 	public static Random random = new Random(System.nanoTime());
-	public static Pattern patternMessage, patternPingPong;
 	
 	private final static String TAG = "MOSS";
 	private static long nanoTime = 0;
@@ -135,6 +133,11 @@ public class Utils
 		return min + (int)(Math.random() * (max - min + 1));
 	}
 	
+	public static boolean random()
+	{
+		return Math.random() < 0.5;
+	}
+	
 	public static boolean isEmptyOrNull(String message)
 	{
 		return message == null || message.isEmpty() || message.equals("null");
@@ -173,5 +176,17 @@ public class Utils
 	public static String encodeString(String str, Charset from_charset, Charset to_charset) {
 		ByteBuffer s = from_charset.encode(str);
 		return new String( s.array(), to_charset ).trim();
+	}
+
+	public static String messageDigest(String algorithm, String input) {
+		try {
+			java.security.MessageDigest md = java.security.MessageDigest.getInstance(algorithm);
+			byte[] array = md.digest(input.getBytes());
+			StringBuffer sb = new StringBuffer();
+			for (int i = 0; i < array.length; ++i)
+				sb.append(Integer.toHexString((array[i] & 0xFF) | 0x100).substring(1, 3));
+			return sb.toString();
+		} catch (java.security.NoSuchAlgorithmException e) { }
+		return null;
 	}
 }

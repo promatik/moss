@@ -18,15 +18,15 @@ public class Console extends Thread
 	{
 		MOSS = instance;
 		commands = new ArrayList<String>();
-		registCommands(Commands.class);
+		registerCommands(Commands.class);
 	}
 	
-	public void registCommand(String command)
+	public void registerCommand(String command)
 	{
 		commands.add(command);
 	}
 
-	public <E extends Enum<?>> void registCommands(Class<E> c)
+	public <E extends Enum<?>> void registerCommands(Class<E> c)
 	{
 		for (E o: c.getEnumConstants())
 			commands.add(o.name());
@@ -52,25 +52,25 @@ public class Console extends Thread
 						switch (Commands.valueOf(input))
 						{
 							case help:
-								Utils.log("Command list:", true);
-								Utils.log(String.join(", ", commands), true);
+								Utils.error("Command list:");
+								Utils.error(String.join(", ", commands));
 								break;
 							case log:
-								Utils.log("Log levels: \n0 None\n1 Default\n2 Errors\n3 Full", true);
+								Utils.error("Log levels: \n0 None\n1 Default\n2 Errors\n3 Full\n4 Verbose");
 								input = br.readLine();
 								try {
 									int result = Integer.parseInt(input);
-									if(result < 0 || result > 3)
+									if(result < 0 || result > 4)
 										throw new NumberFormatException();
 									Utils.log_level = result;
 								} catch (NumberFormatException e) {
 									Utils.error("Not a valid number.");
 								} finally {
-									Utils.log("LOG = " + String.valueOf(Utils.log_level), true);
+									Utils.error("LOG = " + String.valueOf(Utils.log_level));
 								}
 								break;
 							case players_max:
-								Utils.log("Input an integer value greather or equal to zero", true);
+								Utils.error("Input an integer value greather or equal to zero");
 								input = br.readLine();
 								try {
 									int result = Integer.parseInt(input);
@@ -81,11 +81,11 @@ public class Console extends Thread
 								} catch (NumberFormatException e) {
 									Utils.error("Not a valid number.");
 								} finally {
-									Utils.log("CONNECTIONS_MAX = " + String.valueOf(MOSS.connections_max), true);
+									Utils.error("CONNECTIONS_MAX = " + String.valueOf(MOSS.connections_max));
 								}
 								break;
 							case players_waiting:
-								Utils.log("Input an integer value greather or equal to zero", true);
+								Utils.error("Input an integer value greather or equal to zero");
 								input = br.readLine();
 								try {
 									int result = Integer.parseInt(input);
@@ -96,26 +96,26 @@ public class Console extends Thread
 								} catch (NumberFormatException e) {
 									Utils.error("Not a valid number.");
 								} finally {
-									Utils.log("CONNECTIONS_WAITING = " + String.valueOf(MOSS.connections_waiting), true);
+									Utils.error("CONNECTIONS_WAITING = " + String.valueOf(MOSS.connections_waiting));
 								}
 								break;
 							case users:
 								int total = MOSS.server.getUsers().size();
 								int totalWaiting = MOSS.server.getWaitingUsers().size();
-								Utils.log(total + " online users", true);
+								Utils.error(total + " online users");
 								if(totalWaiting > 0)
-									Utils.log(totalWaiting + " waiting to play users", true);
+									Utils.error(totalWaiting + " waiting to play users");
 								break;
 							default:
 								break;
 						}
 					} else {
 						if(commands.contains(input)) {
-							Utils.log("Input the value for '" + input + "':", true);
+							Utils.error("Input the value for '" + input + "':");
 							String value = br.readLine();
 							MOSS.commandInput(input, value);
 						} else {
-							Utils.error("The command '" + input + "' was not found.\nType 'help' to get the command list.\nWhile developing, use 'registCommand()' to regist your own commands.");
+							Utils.error("The command '" + input + "' was not found.\nType 'help' to get the command list.\nWhile developing, use 'registerCommand()' to register your own commands.");
 						}
 					}
 				}
